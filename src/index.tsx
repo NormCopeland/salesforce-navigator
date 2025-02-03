@@ -1,8 +1,8 @@
 import { List, ActionPanel, Action, Icon, open, showToast, Toast } from "@raycast/api";
-import { useLocalStorage } from "@raycast/utils";
-import { useExec } from "@raycast/utils";
+import { useLocalStorage, useExec } from "@raycast/utils";
 import { useState, useEffect } from "react";
 import sfPages from "../data/SFPages.json";
+import SalesforceSearchView from "./SalesforceSearchView";
 
 type Org = {
   username: string;
@@ -45,26 +45,35 @@ async function parseSFDXOrgsOutput(output: string): Promise<Org[]> {
 }
 
 export default function Command() {
+  // Use sfdx to list orgs in JSON mode
   const { isLoading, data, revalidate } = useExec("sfdx", ["force:org:list", "--json"]);
+  // Cache the parsed orgs so they persist between command runs
   const { value: cachedOrgs, setValue: setCachedOrgs } = useLocalStorage<Org[]>("salesforceOrgs", []);
-  
+
   useEffect(() => {
     if (!isLoading && data) {
       parseSFDXOrgsOutput(data)
-        .then((orgs) => setCachedOrgs(orgs))
-        .catch((err) => showToast({ style: Toast.Style.Failure, title: "Error parsing orgs", message: err.message }));
+        .then((orgs) => {
+          // Only update cached orgs if they are different
+          if (JSON.stringify(orgs) !== JSON.stringify(cachedOrgs)) {
+            setCachedOrgs(orgs);
+          }
+        })
+        .catch((err) =>
+          showToast({ style: Toast.Style.Failure, title: "Error parsing orgs", message: err.message })
+        );
     }
-  }, [isLoading, data]);
+  }, [isLoading, data, cachedOrgs, setCachedOrgs]);
+  
 
   const orgs = cachedOrgs || [];
-
   return (
     <List
       isLoading={isLoading}
       navigationTitle="Salesforce Orgs"
       actions={
         <ActionPanel>
-          <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={() => revalidate()} />        
+          <Action title="Refresh Orgs" icon={Icon.ArrowClockwise} onAction={() => revalidate()} />
         </ActionPanel>
       }
     >
@@ -77,7 +86,11 @@ export default function Command() {
             icon={Icon.Database}
             actions={
               <ActionPanel>
-                <Action.Push title="Select Salesforce Page" target={<SelectPageView org={org} />} icon={Icon.ArrowRight} />
+                <Action.Push
+                  title="Select Salesforce Page"
+                  target={<SelectPageView org={org} />}
+                  icon={Icon.ArrowRight}
+                />
                 <Action title="Refresh Orgs" onAction={() => revalidate()} icon={Icon.ArrowClockwise} />
               </ActionPanel>
             }
@@ -106,7 +119,7 @@ function SelectPageView({ org }: { org: Org }) {
                       const fullUrl = org.instanceUrl + page.value;
                       await open(fullUrl);
                     } else {
-                      showToast({ style: Toast.Style.Failure, title: "Missing instance URL" });
+                      await showToast({ style: Toast.Style.Failure, title: "Missing instance URL" });
                     }
                   }}
                 />
@@ -114,6 +127,22 @@ function SelectPageView({ org }: { org: Org }) {
             }
           />
         ))}
+      </List.Section>
+      <List.Section title="More Options">
+        <List.Item
+          icon={Icon.MagnifyingGlass}
+          title="Search Salesforce"
+          accessoryTitle="Custom Search"
+          actions={
+            <ActionPanel>
+              <Action.Push
+                title="Search Salesforce"
+                target={<SalesforceSearchView org={org} />}
+                icon={Icon.MagnifyingGlass}
+              />
+            </ActionPanel>
+          }
+        />
       </List.Section>
     </List>
   );
