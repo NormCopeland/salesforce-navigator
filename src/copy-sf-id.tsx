@@ -12,6 +12,7 @@ import {
 
 type SalesforceTab = {
   id: string;
+  active: boolean;
   orgName: string;
   recordId: string;
   url: string;
@@ -23,19 +24,17 @@ function SalesforceTabItem({ tab }: { tab: SalesforceTab }) {
   React.useEffect(() => {
     async function fetchRecordName() {
       try {
-        // Try fetching the page title from the tab
+        // Attempt to fetch the page title; adjust selector if needed
         const title = await BrowserExtension.getContent({
           cssSelector: "title",
           format: "text",
           tabId: Number(tab.id),
         });
-        // If the title usually is "Record Name | sObject | Salesforce",
-        // we split on " | " and keep only the record name.
+        // Extract only the record name from "Record Name | sObject | Salesforce"
         const parsedTitle = title.split(" | ")[0].trim();
         setRecordName(parsedTitle || "Untitled Record");
       } catch (error) {
-        // When content cannot be fetched (e.g. logged out or inaccessible),
-        // set a fallback value.
+        // When the content is not accessible (e.g. logged out), set a fallback value.
         if (error instanceof Error && error.message.includes("RaycastRPC.ResponseError")) {
           setRecordName("Not Available");
         } else {
@@ -80,9 +79,12 @@ export default function Command() {
   React.useEffect(() => {
     async function fetchSalesforceTabs() {
       try {
+        // Get all open browser tabs.
         const tabs = await BrowserExtension.getTabs();
         console.log("All tabs:", tabs.map((t) => t.url).join("\n"));
 
+        // Filter for tabs with a Salesforce Lightning URL pattern.
+        // Ensure we also retain the 'active' flag.
         const salesforceTabs: SalesforceTab[] = tabs
           .filter((tab) =>
             tab.url.includes("/r/") &&
@@ -96,7 +98,7 @@ export default function Command() {
             if (match && match[1]) {
               recordId = match[1];
               try {
-                const hostname = new URL(tab.url).hostname;
+                const hostname = new URL(tab.url).hostname; // e.g., ethnos.lightning.force.com
                 orgName = hostname.split(".")[0];
               } catch (err) {
                 console.log("Error parsing hostname:", err);
@@ -104,11 +106,20 @@ export default function Command() {
             }
             return {
               id: tab.id.toString(),
+              active: Boolean(tab.active), // preserve active flag
               orgName,
               recordId,
               url: tab.url,
             };
           });
+
+        // Sort so that active tabs come first
+        salesforceTabs.sort((a, b) => {
+          if (a.active && !b.active) return -1;
+          if (!a.active && b.active) return 1;
+          return 0;
+        });
+
         setSFTabs(salesforceTabs);
       } catch (error: unknown) {
         console.error("Error fetching tabs:", error);
