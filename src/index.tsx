@@ -3,6 +3,7 @@ import { useLocalStorage, useExec } from "@raycast/utils";
 import { useState, useEffect } from "react";
 import sfPages from "../data/SFPages.json";
 import SalesforceSearchView from "./SalesforceSearchView";
+import OpenIdView from "./OpenIdView";
 
 type Org = {
   username: string;
@@ -54,7 +55,7 @@ export default function Command() {
     if (!isLoading && data) {
       parseSFDXOrgsOutput(data)
         .then((orgs) => {
-          // Only update cached orgs if they are different
+          // Update only if changed to avoid render loop
           if (JSON.stringify(orgs) !== JSON.stringify(cachedOrgs)) {
             setCachedOrgs(orgs);
           }
@@ -64,7 +65,6 @@ export default function Command() {
         );
     }
   }, [isLoading, data, cachedOrgs, setCachedOrgs]);
-  
 
   const orgs = cachedOrgs || [];
   return (
@@ -86,11 +86,7 @@ export default function Command() {
             icon={Icon.Database}
             actions={
               <ActionPanel>
-                <Action.Push
-                  title="Select Salesforce Page"
-                  target={<SelectPageView org={org} />}
-                  icon={Icon.ArrowRight}
-                />
+                <Action.Push title="Select Salesforce Page" target={<SelectPageView org={org} />} icon={Icon.ArrowRight} />
                 <Action title="Refresh Orgs" onAction={() => revalidate()} icon={Icon.ArrowClockwise} />
               </ActionPanel>
             }
@@ -135,11 +131,17 @@ function SelectPageView({ org }: { org: Org }) {
           accessoryTitle="Custom Search"
           actions={
             <ActionPanel>
-              <Action.Push
-                title="Search Salesforce"
-                target={<SalesforceSearchView org={org} />}
-                icon={Icon.MagnifyingGlass}
-              />
+              <Action.Push title="Search Salesforce" target={<SalesforceSearchView org={org} />} icon={Icon.MagnifyingGlass} />
+            </ActionPanel>
+          }
+        />
+        <List.Item
+          icon={Icon.Key}
+          title="Open by ID"
+          accessoryTitle="Enter Record ID"
+          actions={
+            <ActionPanel>
+              <Action.Push title="Open by ID" target={<OpenIdView org={org} />} icon={Icon.Key} />
             </ActionPanel>
           }
         />
