@@ -5,13 +5,15 @@
       "title": "SF Navigator",
       "name": "index",
       "description": "",
-      "mode": "view"
+      "mode": "view",
+      "icon": "extension-icon.png"
     },
     {
       "title": "Copy SF ID",
       "name": "copy-sf-id",
       "description": "Fetches the URL from your frontmost browser, extracts a Salesforce ID and copies it to the clipboard",
-      "mode": "view"
+      "mode": "view",
+      "icon": "extension-icon-sf-copy.png"
     }
   ],
   "dependencies": {
