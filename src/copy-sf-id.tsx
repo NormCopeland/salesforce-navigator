@@ -18,23 +18,25 @@ type SalesforceTab = {
   url: string;
 };
 
+/**
+ * SalesforceTabItem renders each tab.
+ * It fetches the page title in order to display a human-readable record name.
+ */
 function SalesforceTabItem({ tab }: { tab: SalesforceTab }) {
   const [recordName, setRecordName] = React.useState("Loading…");
 
   React.useEffect(() => {
     async function fetchRecordName() {
       try {
-        // Attempt to fetch the page title; adjust selector if needed
         const title = await BrowserExtension.getContent({
           cssSelector: "title",
           format: "text",
           tabId: Number(tab.id),
         });
-        // Extract only the record name from "Record Name | sObject | Salesforce"
+        // Expect title to be like: "Record Name | sObject | Salesforce"
         const parsedTitle = title.split(" | ")[0].trim();
         setRecordName(parsedTitle || "Untitled Record");
       } catch (error) {
-        // When the content is not accessible (e.g. logged out), set a fallback value.
         if (error instanceof Error && error.message.includes("RaycastRPC.ResponseError")) {
           setRecordName("Not Available");
         } else {
@@ -72,6 +74,12 @@ function SalesforceTabItem({ tab }: { tab: SalesforceTab }) {
   );
 }
 
+/**
+ * In this version, we attempt to detect a Salesforce ID in the URL by:
+ *  1. Trying the standard record URL pattern: /r/<sObject>/<ID>/view
+ *  2. Checking for a query parameter "flowId" (useful for Salesforce Flow pages)
+ *  3. Fallback: looking for a "startURL" parameter that might encode a record URL.
+ */
 export default function Command() {
   const [sfTabs, setSFTabs] = React.useState<SalesforceTab[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
@@ -79,46 +87,63 @@ export default function Command() {
   React.useEffect(() => {
     async function fetchSalesforceTabs() {
       try {
-        // Get all open browser tabs.
         const tabs = await BrowserExtension.getTabs();
         console.log("All tabs:", tabs.map((t) => t.url).join("\n"));
 
-        // Filter for tabs with a Salesforce Lightning URL pattern.
-        // Ensure we also retain the 'active' flag.
         const salesforceTabs: SalesforceTab[] = tabs
-          .filter((tab) =>
-            tab.url.includes("/r/") &&
-            tab.url.includes("lightning.force.com") &&
-            /\/r\/[^/]+\/([a-zA-Z0-9]{15,18})\/view/.test(tab.url)
-          )
+          .filter((tab) => tab.url.includes("force.com"))
           .map((tab) => {
-            const match = tab.url.match(/\/r\/[^/]+\/([a-zA-Z0-9]{15,18})\/view/);
             let recordId = "";
-            let orgName = "Unknown Org";
-            if (match && match[1]) {
-              recordId = match[1];
-              try {
-                const hostname = new URL(tab.url).hostname; // e.g., ethnos.lightning.force.com
-                orgName = hostname.split(".")[0];
-              } catch (err) {
-                console.log("Error parsing hostname:", err);
+            try {
+              // 1. Try matching the standard record URL pattern (/r/<sObject>/<ID>/view)
+              const recordMatch = tab.url.match(/\/r\/[^/]+\/([a-zA-Z0-9]{15,18})\/view/);
+              if (recordMatch && recordMatch[1]) {
+                recordId = recordMatch[1];
+              } else {
+                // Create URL object for further processing
+                const urlObj = new URL(tab.url);
+                // 2. Check if there's a query parameter "flowId"
+                const flowId = urlObj.searchParams.get("flowId");
+                if (flowId && /^[a-zA-Z0-9]{15,18}$/.test(flowId)) {
+                  recordId = flowId;
+                } else {
+                  // 3. Fallback: Look for a "startURL" query parameter (which might be double encoded)
+                  const startURL = urlObj.searchParams.get("startURL");
+                  if (startURL) {
+                    const decodedURL = decodeURIComponent(decodeURIComponent(startURL));
+                    const candidateMatch = decodedURL.match(/\/r\/[^/]+\/([a-zA-Z0-9]{15,18})\/view/);
+                    if (candidateMatch && candidateMatch[1]) {
+                      recordId = candidateMatch[1];
+                    }
+                  }
+                }
               }
+            } catch (e) {
+              console.error("Error parsing Salesforce URL:", e);
             }
+
+            // Extract org name from the hostname. Example: "edudeo" from "edudeo.my.salesforce.com"
+            let orgName = "Unknown Org";
+            try {
+              const hostname = new URL(tab.url).hostname;
+              orgName = hostname.split(".")[0];
+            } catch (err) {
+              console.log("Error parsing hostname:", err);
+            }
+
             return {
               id: tab.id.toString(),
-              active: Boolean(tab.active), // preserve active flag
+              active: Boolean(tab.active),
               orgName,
               recordId,
               url: tab.url,
             };
-          });
+          })
+          // Only keep entries where we found a record ID.
+          .filter((tab) => tab.recordId !== "");
 
-        // Sort so that active tabs come first
-        salesforceTabs.sort((a, b) => {
-          if (a.active && !b.active) return -1;
-          if (!a.active && b.active) return 1;
-          return 0;
-        });
+        // Sort so that active tabs come first.
+        salesforceTabs.sort((a, b) => (a.active && !b.active ? -1 : !a.active && b.active ? 1 : 0));
 
         setSFTabs(salesforceTabs);
       } catch (error: unknown) {

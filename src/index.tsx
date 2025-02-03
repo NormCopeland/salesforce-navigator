@@ -47,7 +47,7 @@ async function parseSFDXOrgsOutput(output: string): Promise<Org[]> {
 
 export default function Command() {
   // Use sfdx to list orgs in JSON mode
-  const { isLoading, data, revalidate } = useExec("sfdx", ["force:org:list", "--json"]);
+  const { isLoading, data, revalidate } = useExec("sf", ["org", "list", "--json"]);
   // Cache the parsed orgs so they persist between command runs
   const { value: cachedOrgs, setValue: setCachedOrgs } = useLocalStorage<Org[]>("salesforceOrgs", []);
 
