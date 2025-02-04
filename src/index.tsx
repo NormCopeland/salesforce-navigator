@@ -11,7 +11,6 @@ import {
 import { useState, useEffect } from "react";
 import { useExec, useLocalStorage } from "@raycast/utils";
 import SalesforceSearchView from "./SalesforceSearchView";
-import SObjectSelectionView from "./SObjectSelectionView";
 import OpenIdView from "./OpenIdView";
 
 // Types
@@ -120,12 +119,9 @@ function OrgListView() {
   );
 }
 
-/**
- * SelectOptionsView: After the org is selected,
- * display the list of options in the desired order:
- * Global Search, Search by SObject, Open by ID, and then Settings Pages.
- */
 function SelectOptionsView({ org }: { org: Org }) {
+  const { popToRoot } = useNavigation();
+
   return (
     <List navigationTitle={`Salesforce: ${org.alias || org.username}`}>
       <List.Section title="Options">
@@ -142,21 +138,6 @@ function SelectOptionsView({ org }: { org: Org }) {
                 target={
                   <SalesforceSearchView org={org} sobject={{ Label: "Global Search", DeveloperName: "global" }} />
                 }
-              />
-            </ActionPanel>
-          }
-        />
-        {/* Search by SObject */}
-        <List.Item
-          icon={Icon.MagnifyingGlass}
-          title="Search by SObject"
-          subtitle="Select an object to search"
-          actions={
-            <ActionPanel>
-              <Action.Push
-                title="Search by SObject"
-                icon={Icon.MagnifyingGlass}
-                target={<SObjectSelectionView org={org} />}
               />
             </ActionPanel>
           }
@@ -188,11 +169,21 @@ function SelectOptionsView({ org }: { org: Org }) {
                   icon={Icon.Globe}
                   title="Open Page"
                   onAction={async () => {
-                    if (org.instanceUrl) {
-                      const fullUrl = org.instanceUrl + page.value;
-                      await open(fullUrl);
-                    } else {
-                      await showToast({ style: Toast.Style.Failure, title: "Missing instance URL" });
+                    try {
+                      const { exec } = require("child_process");
+                      const util = require("util");
+                      const execPromise = util.promisify(exec);
+                      
+                      await execPromise(
+                        `sf org open -p ${page.value} --target-org ${org.alias || org.username}`
+                      );
+                      popToRoot();
+                    } catch (error: any) {
+                      await showToast({ 
+                        style: Toast.Style.Failure, 
+                        title: "Failed to open page",
+                        message: error.message 
+                      });
                     }
                   }}
                 />
