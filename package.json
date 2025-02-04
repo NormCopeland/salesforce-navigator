@@ -16,6 +16,16 @@
       "icon": "extension-icon-sf-copy.png"
     }
   ],
+
+  "preferences": [
+    {
+    "name": "additionalSearchFields", 
+      "type": "textfield",
+      "title": "Additional Search Fields",
+      "description": "Define extra fields for object searches. Format: object,field1,field2;object2,field1,field2",
+      "default": "account,name;contact,name"
+    }
+  ],  
   "dependencies": {
     "@raycast/api": "^1.90.0",
     "@raycast/utils": "^1.17.0"

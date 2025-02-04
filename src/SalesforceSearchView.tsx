@@ -7,10 +7,12 @@ import {
   showToast,
   Toast,
   useNavigation,
+  getPreferenceValues,
 } from "@raycast/api";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useExec } from "@raycast/utils";
 
+// Types for org and SObject.
 type Org = {
   username: string;
   alias: string;
@@ -24,22 +26,26 @@ type SObject = {
 };
 
 type RecordResult = {
-  Id: string;
-  Name: string;
+  [key: string]: any;
 };
 
+// Preferences interface for additional search fields.
+interface Preferences {
+  additionalSearchFields: string;
+}
+
 /**
- * Returns the object API name.
- * - If the sObject is set to "global", returns "global".
- * - Otherwise, if DeveloperName exists and appears custom (contains "_" without ending with "__c"), it converts it to lowercase and appends "__c".
- * - If DeveloperName is missing, it uses the Label similarly.
+ * Returns the API name for an SObject.
+ * - For standard objects, DeveloperName is used directly.
+ * - For custom objects (heuristic: if DeveloperName contains "_" and does not end with "__c"),
+ *   converts to lowercase and appends "__c".
+ * - If DeveloperName is missing, fallback on the Label similarly.
+ * - If the sObject is meant for a global search, returns "global".
  */
 function getObjectApiName(sobject: SObject): string {
   if (sobject.DeveloperName && sobject.DeveloperName.trim() !== "" && sobject.DeveloperName.trim().toLowerCase() !== "null") {
     let devName = sobject.DeveloperName.trim();
-    if (devName.toLowerCase() === "global") {
-      return "global";
-    }
+    if (devName.toLowerCase() === "global") return "global";
     if (devName.includes("_") && !devName.endsWith("__c")) {
       devName = devName.toLowerCase();
       return devName + "__c";
@@ -47,9 +53,7 @@ function getObjectApiName(sobject: SObject): string {
     return devName;
   } else if (sobject.Label) {
     let cleanLabel = sobject.Label.trim().replace(/\s+/g, "_");
-    if (cleanLabel.toLowerCase() === "all") {
-      return "global";
-    }
+    if (cleanLabel.toLowerCase() === "all") return "global";
     if (!cleanLabel.endsWith("__c")) {
       cleanLabel = cleanLabel.toLowerCase();
       return cleanLabel + "__c";
@@ -59,29 +63,68 @@ function getObjectApiName(sobject: SObject): string {
   return "UnknownObject";
 }
 
+/**
+ * Parses the additionalSearchFields preference string.
+ * Expected format: "account,name,accountNumber__C,oppAmountThisYear__c;contact,name,preferred_first_name__c,mobilephone,mailingstreet"
+ * Returns a Map where each key (sobject in lowercase) maps to an array of extra field names.
+ */
+function parseAdditionalSearchFields(pref: string): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  if (!pref || pref.trim() === "") return map;
+  const groups = pref.split(";");
+  groups.forEach((group) => {
+    const tokens = group.split(",").map((token) => token.trim());
+    if (tokens.length > 1) {
+      const sobjectName = tokens[0].toLowerCase();
+      const fields = tokens.slice(1).filter((t) => t);
+      map.set(sobjectName, fields);
+    }
+  });
+  return map;
+}
+
 export default function SalesforceSearchView({ org, sobject }: { org: Org; sobject: SObject }) {
+  // Compute the API name once.
+  const apiNameValue = getObjectApiName(sobject);
+  const isGlobal = apiNameValue === "global";
+
+  // Read extension preferences.
+  const preferences = getPreferenceValues<Preferences>();
+  const searchFieldMap = parseAdditionalSearchFields(preferences.additionalSearchFields);
+  const currentObjKey = apiNameValue.toLowerCase();
+  // For SELECT clause we include Id and Name plus any additional fields.
+  const selectFields = searchFieldMap.has(currentObjKey)
+    ? ["Id", "Name", ...searchFieldMap.get(currentObjKey)!]
+    : ["Id", "Name"];
+  // For the WHERE conditions, we search only on textual fields (exclude Id).
+  const conditionFields = selectFields.filter((f) => f.toLowerCase() !== "id");
+
   const [searchText, setSearchText] = useState("");
   const [records, setRecords] = useState<RecordResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { pop } = useNavigation();
 
-  // Compute API name and determine if we're doing a global search.
-  const apiName = useCallback(() => getObjectApiName(sobject), [sobject]);
-  const isGlobalSearch = apiName() === "global";
-
-  // For non-global searches, run the CLI query via useEffect.
   useEffect(() => {
-    if (isGlobalSearch) {
-      // For global search, we do nothing in useEffect
-      setRecords([]);
-      return;
-    }
     if (!searchText) {
       setRecords([]);
       return;
     }
+    // For global search, we do not run a CLI query.
+    if (isGlobal) {
+      setRecords([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
-    const soql = `SELECT Id, Name FROM ${apiName()} WHERE Name LIKE '%${searchText}%' LIMIT 50`;
+
+    // Build the condition string for each field using the search text.
+    const conditions = conditionFields
+      .map((field) => `${field} LIKE '%${searchText}%'`)
+      .join(" OR ");
+    const fieldCondition = conditions ? `WHERE (${conditions})` : "";
+
+    // Build the SOQL query.
+    const soql = `SELECT ${selectFields.join(", ")} FROM ${apiNameValue} ${fieldCondition} LIMIT 50`;
     import("child_process")
       .then(({ exec }) => {
         const util = require("util");
@@ -106,39 +149,38 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
       .finally(() => {
         setIsLoading(false);
       });
-  }, [searchText, org, apiName, isGlobalSearch]);
+  }, [searchText, org, apiNameValue, isGlobal, conditionFields, selectFields, searchFieldMap]);
 
-  // For global search, construct a Salesforce search URL and open it in the browser.
+  // Global search: construct a Salesforce search URL.
   function handleGlobalSearch() {
-    // Construct the JSON payload as used by Salesforce's Lightning search:
-    const jsonVar = {
+    const payload = {
       componentDef: "forceSearch:searchPageDesktop",
       attributes: {
         term: searchText,
         scopeMap: { type: "TOP_RESULTS" },
-        groupId: "DEFAULT",
+        groupId: "DEFAULT"
       },
-      state: {},
+      state: {}
     };
-    const encodedJsonVar = Buffer.from(JSON.stringify(jsonVar)).toString("base64");
-    const url = `${org.instanceUrl}/one/one.app#${encodedJsonVar}`;
+    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64");
+    const url = `${org.instanceUrl}/one/one.app#${encodedPayload}`;
     open(url);
   }
 
-  // For non-global searches, handle record action by opening its URL.
+  // For non-global searches, handle record opening.
   function handleRecordAction(record: RecordResult) {
-    let recordUrl = `${org.instanceUrl}/lightning/r/${apiName()}/${record.Id}/view`;
+    const recordUrl = `${org.instanceUrl}/lightning/r/${apiNameValue}/${record.Id}/view`;
     open(recordUrl);
   }
 
-  if (isGlobalSearch) {
-    // Global search: display a simple list item to trigger the global search
+  // If global search is active, display a simple list to trigger it.
+  if (isGlobal) {
     return (
       <List
         isLoading={isLoading}
         searchText={searchText}
         onSearchTextChange={setSearchText}
-        navigationTitle="Global Search in Salesforce"
+        navigationTitle="Global Search"
         searchBarPlaceholder="Type search terms"
       >
         {searchText ? (
@@ -156,13 +198,13 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
       </List>
     );
   }
-
+  
   return (
     <List
       isLoading={isLoading}
       searchText={searchText}
       onSearchTextChange={setSearchText}
-      navigationTitle={`Search ${sobject.Label || apiName()}`}
+      navigationTitle={`Search ${sobject.Label || apiNameValue}`}
       searchBarPlaceholder="Type search terms"
     >
       {records.map((record) => (
@@ -170,10 +212,25 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
           key={record.Id}
           title={record.Name}
           subtitle={`ID: ${record.Id}`}
-          detail={<List.Item.Detail markdown={`# ${record.Name}\n\nRecord ID: \`${record.Id}\``} />}
+          detail={
+            <List.Item.Detail
+              markdown={`# ${record.Name}`}
+              metadata={
+                <List.Item.Detail.Metadata>
+                  {selectFields.map((field) => (
+                    <List.Item.Detail.Metadata.Label
+                      key={field}
+                      title={field}
+                      text={field.toLowerCase() === "id" ? record.Id : record[field] ? record[field].toString() : "Not available"}
+                    />
+                  ))}
+                </List.Item.Detail.Metadata>
+              }
+            />
+          }
           actions={
             <ActionPanel>
-              <Action title="Open Record" icon={Icon.OpenInBrowser} onAction={() => handleRecordAction(record)} />
+              <Action title="Open Record" icon={Icon.OpenInBrowser} onAction={() => open(`${org.instanceUrl}/lightning/r/${apiNameValue}/${record.Id}/view`)} />
               <Action.CopyToClipboard title="Copy Record ID" content={record.Id} />
             </ActionPanel>
           }
