@@ -100,6 +100,28 @@ export default function Command() {
 function SelectPageView({ org }: { org: Org }) {
   return (
     <List navigationTitle={`Salesforce: ${org.alias || org.username}`}>
+            <List.Section title="More Options">
+        <List.Item
+          icon={Icon.MagnifyingGlass}
+          title="Search Salesforce"
+          accessoryTitle="Custom Search"
+          actions={
+            <ActionPanel>
+              <Action.Push title="Search Salesforce" target={<SalesforceSearchView org={org} />} icon={Icon.MagnifyingGlass} />
+            </ActionPanel>
+          }
+        />
+        <List.Item
+          icon={Icon.Key}
+          title="Open by ID"
+          accessoryTitle="Enter Record ID"
+          actions={
+            <ActionPanel>
+              <Action.Push title="Open by ID" target={<OpenIdView org={org} />} icon={Icon.Key} />
+            </ActionPanel>
+          }
+        />
+      </List.Section>
       <List.Section title="Pages">
         {PAGES.map((page) => (
           <List.Item
@@ -123,28 +145,6 @@ function SelectPageView({ org }: { org: Org }) {
             }
           />
         ))}
-      </List.Section>
-      <List.Section title="More Options">
-        <List.Item
-          icon={Icon.MagnifyingGlass}
-          title="Search Salesforce"
-          accessoryTitle="Custom Search"
-          actions={
-            <ActionPanel>
-              <Action.Push title="Search Salesforce" target={<SalesforceSearchView org={org} />} icon={Icon.MagnifyingGlass} />
-            </ActionPanel>
-          }
-        />
-        <List.Item
-          icon={Icon.Key}
-          title="Open by ID"
-          accessoryTitle="Enter Record ID"
-          actions={
-            <ActionPanel>
-              <Action.Push title="Open by ID" target={<OpenIdView org={org} />} icon={Icon.Key} />
-            </ActionPanel>
-          }
-        />
       </List.Section>
     </List>
   );
