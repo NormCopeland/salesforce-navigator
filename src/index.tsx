@@ -1,10 +1,20 @@
-import { List, ActionPanel, Action, Icon, open, showToast, Toast } from "@raycast/api";
-import { useLocalStorage, useExec } from "@raycast/utils";
+import {
+  List,
+  ActionPanel,
+  Action,
+  Icon,
+  showToast,
+  Toast,
+  open,
+  useNavigation,
+} from "@raycast/api";
 import { useState, useEffect } from "react";
-import sfPages from "../data/SFPages.json";
+import { useExec, useLocalStorage } from "@raycast/utils";
 import SalesforceSearchView from "./SalesforceSearchView";
+import SObjectSelectionView from "./SObjectSelectionView";
 import OpenIdView from "./OpenIdView";
 
+// Types
 type Org = {
   username: string;
   alias: string;
@@ -17,11 +27,14 @@ type SalesforcePage = {
   value: string;
 };
 
-const PAGES: SalesforcePage[] = sfPages as SalesforcePage[];
+// Static settings pages loaded from your data folder:
+const PAGES: SalesforcePage[] = require("../data/SFPages.json");
 
+// Helper to parse the output from "sf org list --json"
 async function parseSFDXOrgsOutput(output: string): Promise<Org[]> {
   const parsed = JSON.parse(output);
   const orgs: Org[] = [];
+  // Check for nonScratchOrgs and scratchOrgs
   if (parsed.result?.nonScratchOrgs) {
     parsed.result.nonScratchOrgs.forEach((item: any) => {
       orgs.push({
@@ -45,32 +58,38 @@ async function parseSFDXOrgsOutput(output: string): Promise<Org[]> {
   return orgs;
 }
 
-export default function Command() {
-  // Use sfdx to list orgs in JSON mode
-  const { isLoading, data, revalidate } = useExec("sf", ["org", "list", "--json"]);
-  // Cache the parsed orgs so they persist between command runs
-  const { value: cachedOrgs, setValue: setCachedOrgs } = useLocalStorage<Org[]>("salesforceOrgs", []);
+/**
+ * OrgListView: The initial view that displays connected orgs.
+ */
+function OrgListView() {
+  const { push } = useNavigation();
+  const { isLoading, data, revalidate } = useExec("sf", [
+    "org",
+    "list",
+    "--json",
+  ]);
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!isLoading && data) {
+    if (data) {
       parseSFDXOrgsOutput(data)
-        .then((orgs) => {
-          // Update only if changed to avoid render loop
-          if (JSON.stringify(orgs) !== JSON.stringify(cachedOrgs)) {
-            setCachedOrgs(orgs);
-          }
-        })
-        .catch((err) =>
-          showToast({ style: Toast.Style.Failure, title: "Error parsing orgs", message: err.message })
-        );
+        .then((parsedOrgs) => setOrgs(parsedOrgs))
+        .catch((err) => {
+          setError(err);
+          showToast({ style: Toast.Style.Failure, title: "Error parsing orgs", message: err.message });
+        });
     }
-  }, [isLoading, data, cachedOrgs, setCachedOrgs]);
+  }, [data]);
 
-  const orgs = cachedOrgs || [];
+  if (error) {
+    return <List.EmptyView icon={Icon.Warning} title="Failed to load orgs" />;
+  }
+
   return (
     <List
       isLoading={isLoading}
-      navigationTitle="Salesforce Orgs"
+      navigationTitle="Salesforce: Connected Orgs"
       actions={
         <ActionPanel>
           <Action title="Refresh Orgs" icon={Icon.ArrowClockwise} onAction={() => revalidate()} />
@@ -86,7 +105,11 @@ export default function Command() {
             icon={Icon.Database}
             actions={
               <ActionPanel>
-                <Action.Push title="Select Salesforce Page" target={<SelectPageView org={org} />} icon={Icon.ArrowRight} />
+                <Action.Push
+                  title="Select Options"
+                  icon={Icon.ArrowRight}
+                  target={<SelectOptionsView org={org} />}
+                />
                 <Action title="Refresh Orgs" onAction={() => revalidate()} icon={Icon.ArrowClockwise} />
               </ActionPanel>
             }
@@ -97,32 +120,64 @@ export default function Command() {
   );
 }
 
-function SelectPageView({ org }: { org: Org }) {
+/**
+ * SelectOptionsView: After the org is selected,
+ * display the list of options in the desired order:
+ * Global Search, Search by SObject, Open by ID, and then Settings Pages.
+ */
+function SelectOptionsView({ org }: { org: Org }) {
   return (
     <List navigationTitle={`Salesforce: ${org.alias || org.username}`}>
-            <List.Section title="More Options">
+      <List.Section title="Options">
+        {/* Global Search */}
         <List.Item
-          icon={Icon.MagnifyingGlass}
-          title="Search Salesforce"
-          accessoryTitle="Custom Search"
+          icon={Icon.Globe}
+          title="Global Search"
+          subtitle="Search across all objects"
           actions={
             <ActionPanel>
-              <Action.Push title="Search Salesforce" target={<SalesforceSearchView org={org} />} icon={Icon.MagnifyingGlass} />
+              <Action.Push
+                title="Global Search"
+                icon={Icon.Globe}
+                target={
+                  <SalesforceSearchView org={org} sobject={{ Label: "Global Search", DeveloperName: "global" }} />
+                }
+              />
             </ActionPanel>
           }
         />
+        {/* Search by SObject */}
+        <List.Item
+          icon={Icon.MagnifyingGlass}
+          title="Search by SObject"
+          subtitle="Select an object to search"
+          actions={
+            <ActionPanel>
+              <Action.Push
+                title="Search by SObject"
+                icon={Icon.MagnifyingGlass}
+                target={<SObjectSelectionView org={org} />}
+              />
+            </ActionPanel>
+          }
+        />
+        {/* Open by ID */}
         <List.Item
           icon={Icon.Key}
           title="Open by ID"
-          accessoryTitle="Enter Record ID"
+          subtitle="Enter a record ID"
           actions={
             <ActionPanel>
-              <Action.Push title="Open by ID" target={<OpenIdView org={org} />} icon={Icon.Key} />
+              <Action.Push
+                title="Open by ID"
+                target={<OpenIdView org={org} />}
+                icon={Icon.Key}
+              />
             </ActionPanel>
           }
         />
       </List.Section>
-      <List.Section title="Pages">
+      <List.Section title="Settings Pages">
         {PAGES.map((page) => (
           <List.Item
             key={page.title}
@@ -148,4 +203,11 @@ function SelectPageView({ org }: { org: Org }) {
       </List.Section>
     </List>
   );
+}
+
+/**
+ * The main exported component uses the OrgListView.
+ */
+export default function Command() {
+  return <OrgListView />;
 }

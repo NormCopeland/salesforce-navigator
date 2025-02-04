@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Form, ActionPanel, Action, open, showToast, Toast, useNavigation, Icon } from "@raycast/api";
 
 type Org = {
@@ -15,7 +16,6 @@ export default function OpenIdView({ org }: { org: Org }) {
       await showToast({ style: Toast.Style.Failure, title: "Please enter a record ID" });
       return;
     }
-    // Simply append the record ID to the org's instance URL.
     const fullUrl = `${org.instanceUrl}/${values.recordId}`;
     await open(fullUrl);
     pop();
