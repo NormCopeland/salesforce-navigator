@@ -1,7 +1,5 @@
 [
     { "title": "Home", "value": "/" },
-    { "title": "Contacts", "value": "/lightning/o/Contact/list" },
-    { "title": "Accounts", "value": "/lightning/o/Account/list" },
     { "title": "Setup Home", "value": "/lightning/setup/SetupOneHome/home/" },
     { "title": "Service Setup Assistant", "value": "/lightning/setup/ServiceHome/home" },
     { "title": "Multi-Factor Authentication Assistant", "value": "/lightning/setup/MfaAssistant/home" },

@@ -8,7 +8,7 @@ import {
   Toast,
   useNavigation,
 } from "@raycast/api";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useExec, useCachedState } from "@raycast/utils";
 import PAGES from "../data/SFPages.json";
 import SalesforceSearchView from "./SalesforceSearchView";
@@ -73,11 +73,7 @@ function OrgListView() {
           }
           setOrgs(fetchedOrgs);
         } catch (err: any) {
-          await showToast({
-            style: Toast.Style.Failure,
-            title: "Error parsing orgs",
-            message: err.message,
-          });
+          await showToast({ style: Toast.Style.Failure, title: "Error parsing orgs", message: err.message });
         } finally {
           setIsLoading(false);
         }
@@ -140,11 +136,19 @@ function parseSobjectsOutput(output: string): SObject[] {
 }
 
 // --------------------------
-// SalesforceSobjectOptionsView Component
+// Render SObject Row with Inline Actions
 // --------------------------
-// This view is pushed when a user selects an SObject and shows two options: one to open the object's Settings and one to open its main Records view.
-function SalesforceSobjectOptionsView({ org, sobj }: { org: Org; sobj: SObject }) {
-  const { popToRoot } = useNavigation();
+function renderSobjectRow(org: Org, sobj: SObject): JSX.Element {
+  // Use label if available; fallback with developername.
+  const baseLabel = (sobj.label || sobj.developername) || "Unknown SObject";
+  // Lowercase version of developername for keywords.
+  const devLower = (sobj.developername || "").toLowerCase();
+  // Split developername into tokens based on non-alphanumeric characters.
+  const tokens = devLower.split(/[^a-z0-9]+/).filter((t) => t.length > 0);
+  // Extract version token if present (like "v2").
+  const versionMatch = devLower.match(/v\d+/i);
+  const extraTokens = versionMatch ? [versionMatch[0].toLowerCase()] : [];
+  const keywords = [baseLabel.toLowerCase(), devLower, ...tokens, ...extraTokens];
 
   // Build the Settings URL:
   let settingsUrl = "";
@@ -157,9 +161,9 @@ function SalesforceSobjectOptionsView({ org, sobj }: { org: Org; sobj: SObject }
   } else {
     settingsUrl = `${org.instanceUrl}/lightning/setup/ObjectManager/${sobj.developername}/Details/view`;
   }
-
+  
   // Build Main Tab URL:
-  // For custom objects, ensure the developername ends with __c.
+  // For custom objects, ensure the API name ends with __c.
   let apiNameForMainTab = sobj.developername;
   if (sobj.EditDefinitionUrl && !sobj.developername.endsWith("__c")) {
     apiNameForMainTab = sobj.developername + "__c";
@@ -167,36 +171,19 @@ function SalesforceSobjectOptionsView({ org, sobj }: { org: Org; sobj: SObject }
   const mainTabUrl = `${org.instanceUrl}/lightning/o/${apiNameForMainTab}/list?filterName=__Recent`;
 
   return (
-    <List navigationTitle={sobj.label || sobj.developername}>
-      <List.Item
-        icon={Icon.Gear}
-        title={(sobj.label || sobj.developername) + " Settings"}
-        actions={
-          <ActionPanel>
-            <Action.OpenInBrowser
-              title="Open Settings Page"
-              icon={Icon.Gear}
-              url={settingsUrl}
-              onAction={popToRoot}
-            />
-          </ActionPanel>
-        }
-      />
-      <List.Item
-        icon={Icon.Globe}
-        title={(sobj.label || sobj.developername) + " Records"}
-        actions={
-          <ActionPanel>
-            <Action.OpenInBrowser
-              title="Open Main Tab"
-              icon={Icon.Globe}
-              url={mainTabUrl}
-              onAction={popToRoot}
-            />
-          </ActionPanel>
-        }
-      />
-    </List>
+    <List.Item
+      key={sobj.id}
+      title={baseLabel}
+      subtitle={sobj.developername || ""}
+      icon={Icon.Table}
+      keywords={keywords}
+      actions={
+        <ActionPanel>
+          <Action.OpenInBrowser title="Open Object Page" icon={Icon.Gear} url={settingsUrl} />
+          <Action.OpenInBrowser title="Open Records Page" icon={Icon.Globe} url={mainTabUrl} />
+        </ActionPanel>
+      }
+    />
   );
 }
 
@@ -204,13 +191,13 @@ function SalesforceSobjectOptionsView({ org, sobj }: { org: Org; sobj: SObject }
 // SelectOptionsView Component
 // --------------------------
 function SelectOptionsView({ org }: { org: Org }) {
-  const { popToRoot, push } = useNavigation();
+  const { popToRoot } = useNavigation();
   const targetOrg = org.alias || org.username;
 
-  // Filter state for list sections
+  // Filter state to control which sections are shown.
   const [filterCategory, setFilterCategory] = useState("all");
 
-  // Query SObjects via CLI
+  // Query SObjects via CLI.
   const sObjectsQuery =
     'SELECT Id, Label, DeveloperName, EditDefinitionUrl FROM entitydefinition WHERE isQueryable = true AND isSearchable = true ORDER BY DeveloperName ASC';
   const {
@@ -229,7 +216,7 @@ function SelectOptionsView({ org }: { org: Org }) {
     "--json",
   ]);
 
-  // Persist SObjects using useCachedState between command runs.
+  // Cache sobjects using useCachedState so that they persist between runs.
   const [sobjects, setSobjects] = useCachedState<SObject[]>(`sobjects-${targetOrg}`, []);
   useEffect(() => {
     if (sobjectsOutput) {
@@ -238,7 +225,7 @@ function SelectOptionsView({ org }: { org: Org }) {
     }
   }, [sobjectsOutput, setSobjects]);
 
-  // Create a searchBarAccessory dropdown filter.
+  // Create a dropdown filter accessory.
   const filterAccessory = (
     <List.Dropdown
       tooltip="Filter Sections"
@@ -252,25 +239,6 @@ function SelectOptionsView({ org }: { org: Org }) {
         <List.Dropdown.Item value="settings" title="Settings Pages" />
       </List.Dropdown.Section>
     </List.Dropdown>
-  );
-
-  // Render each SObject row: push a new view when selected.
-  const renderSobjectRow = (sobj: SObject) => (
-    <List.Item
-      key={sobj.id}
-      title={(sobj.label || sobj.developername) || "Unknown SObject"}
-      subtitle={sobj.developername || ""}
-      icon={Icon.Table}
-      actions={
-        <ActionPanel>
-          <Action.Push
-            title="View Options"
-            icon={Icon.ArrowRight}
-            target={<SalesforceSobjectOptionsView org={org} sobj={sobj} />}
-          />
-        </ActionPanel>
-      }
-    />
   );
 
   return (
@@ -322,7 +290,7 @@ function SelectOptionsView({ org }: { org: Org }) {
           ) : sobjects.length === 0 ? (
             <List.Item title="No SObjects found" icon={Icon.MagnifyingGlass} />
           ) : (
-            sobjects.map((sobj) => renderSobjectRow(sobj))
+            sobjects.map((sobj) => renderSobjectRow(org, sobj))
           )}
         </List.Section>
       )}
