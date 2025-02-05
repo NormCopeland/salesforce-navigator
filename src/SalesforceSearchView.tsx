@@ -34,14 +34,6 @@ interface Preferences {
   additionalSearchFields: string;
 }
 
-/**
- * Returns the API name for an SObject.
- * - For standard objects, DeveloperName is used directly.
- * - For custom objects (heuristic: if DeveloperName contains "_" and does not end with "__c"),
- *   converts to lowercase and appends "__c".
- * - If DeveloperName is missing, fallback on the Label similarly.
- * - If the sObject is meant for a global search, returns "global".
- */
 function getObjectApiName(sobject: SObject): string {
   if (sobject.DeveloperName && sobject.DeveloperName.trim() !== "" && sobject.DeveloperName.trim().toLowerCase() !== "null") {
     let devName = sobject.DeveloperName.trim();
