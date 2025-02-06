@@ -1,7 +1,16 @@
 import * as React from "react";
-import { Form, ActionPanel, Action, showToast, Toast, useNavigation, Icon } from "@raycast/api";
+import {
+  Form,
+  ActionPanel,
+  Action,
+  showToast,
+  Toast,
+  useNavigation,
+  Icon,
+  open,
+} from "@raycast/api";
+import { useState } from "react";
 
-// Define our Org type.
 type Org = {
   username: string;
   alias: string;
@@ -11,32 +20,63 @@ type Org = {
 
 export default function OpenIdView({ org }: { org: Org }) {
   const { pop } = useNavigation();
+  // Use state to control the text field so we can read its value
+  const [recordId, setRecordId] = useState<string>("");
 
-  async function handleSubmit(values: { recordId: string }) {
-    if (!values.recordId) {
-      await showToast({ style: Toast.Style.Failure, title: "Please enter a record ID" });
+  // Existing action: Open a record using Salesforce CLI (which preserves CLI authentication)
+  async function handleOpenRecord() {
+    if (!recordId.trim()) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Please enter a record ID",
+      });
       return;
     }
-
-    const recordId = values.recordId.trim();
-    // Naively derive the object api name using the first three characters.
-    // In a real scenario, you might need a mapping from the record prefix to a proper object API name.
-    const objectPrefix = recordId.substring(0, 3);
-    // Construct the relative Salesforce URL for a record page.
-    const relativePath = `/lightning/r/${objectPrefix}/${recordId}/view`;
-
+    const trimmedRecordId = recordId.trim();
+    // Naively derive the object API using first three characters (consider mapping for real use)
+    const objectPrefix = trimmedRecordId.substring(0, 3);
+    const relativePath = `/lightning/r/${objectPrefix}/${trimmedRecordId}/view`;
     const targetOrg = org.alias || org.username;
 
     try {
-      // Use Node's child_process.exec (promisified) to run the CLI command
       const { exec } = require("child_process");
       const util = require("util");
       const execPromise = util.promisify(exec);
       await execPromise(`sf org open -p "${relativePath}" --target-org "${targetOrg}"`);
       pop();
     } catch (error: any) {
-      await showToast({ style: Toast.Style.Failure, title: "Failed to open record", message: error.message });
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Failed to open record",
+        message: error.message,
+      });
     }
+  }
+
+  // New action: Search in Browser (global search) when user has typed something.
+  async function handleSearchInBrowser() {
+    if (!recordId.trim()) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Please enter a search term",
+      });
+      return;
+    }
+    const term = recordId.trim();
+    // Build the payload for global search (Salesforce Lightning Search page)
+    const payload = {
+      componentDef: "forceSearch:searchPageDesktop",
+      attributes: {
+        term,
+        scopeMap: { type: "TOP_RESULTS" },
+        groupId: "DEFAULT",
+      },
+      state: {},
+    };
+    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64");
+    const url = `${org.instanceUrl}/one/one.app#${encodedPayload}`;
+    // This action opens the URL directly in the browser using open()
+    open(url);
   }
 
   return (
@@ -44,11 +84,20 @@ export default function OpenIdView({ org }: { org: Org }) {
       navigationTitle="Open Record by ID"
       actions={
         <ActionPanel>
-          <Action.SubmitForm title="Open Record" onSubmit={handleSubmit} icon={Icon.Link} />
+          {/* This Action.SubmitForm is used to open a record through Salesforce CLI */}
+          <Action.SubmitForm title="Open Record" onSubmit={handleOpenRecord} icon={Icon.Link} />
+          {/* Additional action for global search in the browser */}
+          <Action title="Search in Browser" icon={Icon.MagnifyingGlass} onAction={handleSearchInBrowser} />
         </ActionPanel>
       }
     >
-      <Form.TextField id="recordId" title="Salesforce Record ID" placeholder="Enter the record ID" />
+      <Form.TextField
+        id="recordId"
+        title="Salesforce Record ID or Search Term"
+        placeholder="Enter a record ID or search term"
+        value={recordId}
+        onChange={setRecordId}
+      />
     </Form>
   );
 }

@@ -13,6 +13,7 @@ import { useExec, useCachedState } from "@raycast/utils";
 import PAGES from "../data/SFPages.json";
 import SalesforceSearchView from "./SalesforceSearchView";
 import OpenIdView from "./OpenIdView";
+import GlobalSearchResultsView from "./GlobalSearchResultsView";
 
 // --------------------------
 // Type Definitions
@@ -285,12 +286,46 @@ function SelectOptionsView({ org }: { org: Org }) {
 
   return (
     <List navigationTitle={`Salesforce: ${org.alias || org.username}`} searchBarAccessory={filterAccessory}>
+
+{/* { (filterCategory === "all" || filterCategory === "global") && (
+  <List.Section title="Global Search">
+    <List.Item
+      icon={Icon.Globe}
+      title="Global Search"
+      subtitle="Search across Accounts and Contacts"
+      actions={
+        <ActionPanel>
+          <Action.Push
+            title="Show Global Search Results"
+            icon={Icon.Globe}
+            target={<GlobalSearchResultsView org={org} />}
+          />
+        </ActionPanel>
+      }
+    />
+  </List.Section>
+)} */}
+
       {(filterCategory === "all" || filterCategory === "options") && (
         <List.Section title="Options">
           <List.Item
+      icon={Icon.Globe}
+      title="Global Search"
+      subtitle="Search across Accounts and Contacts"
+      actions={
+        <ActionPanel>
+          <Action.Push
+            title="Show Global Search Results"
+            icon={Icon.Globe}
+            target={<GlobalSearchResultsView org={org} />}
+          />
+        </ActionPanel>
+      }
+    />
+          <List.Item
             icon={Icon.Globe}
             title="Global Search"
-            subtitle="Search across all objects"
+            subtitle="Open Global Search in Browser"
             actions={
               <ActionPanel>
                 <Action.Push
