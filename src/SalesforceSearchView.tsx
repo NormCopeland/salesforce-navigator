@@ -144,20 +144,38 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
   }, [searchText, org, apiNameValue, isGlobal, conditionFields, selectFields, searchFieldMap]);
 
   // Global search: construct a Salesforce search URL.
-  function handleGlobalSearch() {
+  async function handleGlobalSearch() {
     const payload = {
       componentDef: "forceSearch:searchPageDesktop",
       attributes: {
         term: searchText,
         scopeMap: { type: "TOP_RESULTS" },
-        groupId: "DEFAULT"
+        groupId: "DEFAULT",
       },
-      state: {}
+      state: {},
     };
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64");
-    const url = `${org.instanceUrl}/one/one.app#${encodedPayload}`;
-    open(url);
+    const fullUrl = `${org.instanceUrl}/one/one.app#${encodedPayload}`;
+  
+    // Use the URL API to extract the relative portion (pathname + search + hash)
+    const urlObj = new URL(fullUrl);
+    const relativeGlobalPath = urlObj.pathname + urlObj.search + urlObj.hash;
+    const targetOrg = org.alias || org.username;
+  
+    try {
+      const { exec } = require("child_process");
+      const util = require("util");
+      const execPromise = util.promisify(exec);
+      await execPromise(`sf org open -p "${relativeGlobalPath}" --target-org "${targetOrg}"`);
+    } catch (error: any) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Global Search failed",
+        message: error.message,
+      });
+    }
   }
+  
 
   // For non-global searches, handle record opening.
   function handleRecordAction(record: RecordResult) {
