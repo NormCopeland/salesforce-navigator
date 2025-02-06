@@ -69,6 +69,7 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
       });
       return;
     }
+    // Build the global search payload
     const payload = {
       componentDef: "forceSearch:searchPageDesktop",
       attributes: {
@@ -79,11 +80,24 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
       state: {},
     };
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64");
-    const url = `${org.instanceUrl}/one/one.app#${encodedPayload}`;
-    // Open the URL in the browser using the standard open() method.
-    open(url);
+    const fullUrl = `${org.instanceUrl}/one/one.app#${encodedPayload}`;
+    // Use the URL API to extract the relative portion
+    const urlObj = new URL(fullUrl);
+    const relativeGlobalPath = urlObj.pathname + urlObj.search + urlObj.hash;
+    try {
+      const { exec } = require("child_process");
+      const util = require("util");
+      const execPromise = util.promisify(exec);
+      await execPromise(`sf org open -p "${relativeGlobalPath}" --target-org "${targetOrg}"`);
+    } catch (error: any) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Global Search failed",
+        message: error.message,
+      });
+    }
   }
-
+  
   return (
     <List
       isLoading={isLoading}
@@ -107,34 +121,32 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
       <List.Section title="Search Results">
         {records.map((record) => (
           <List.Item
-            key={record.Id}
-            title={record.Name}
-            subtitle={record.Id}
-            icon={Icon.Document}
-            actions={
-              <ActionPanel>
+          key={record.Id}
+          title={record.Name}
+          subtitle={record.Id}
+          icon={Icon.Document}
+          actions={
+            <ActionPanel>
+              <ActionPanel.Section>
+                {/* Primary action: open record using Salesforce CLI */}
                 <Action
                   title={`Open ${record.attributes.type} Record`}
                   icon={Icon.OpenInBrowser}
-                  onAction={async () => {
-                    try {
-                      const relativeRecordPath = `/lightning/r/${record.attributes.type}/${record.Id}/view`;
-                      const { exec } = require("child_process");
-                      const util = require("util");
-                      const execPromise = util.promisify(exec);
-                      await execPromise(`sf org open -p "${relativeRecordPath}" --target-org "${targetOrg}"`);
-                    } catch (error: any) {
-                      await showToast({
-                        style: Toast.Style.Failure,
-                        title: "Failed to open record",
-                        message: error.message,
-                      });
-                    }
-                  }}
+                  onAction={() => handleOpenRecord(record)}
+                  shortcut={{ modifiers: [], key: "enter" }}
                 />
-              </ActionPanel>
-            }
-          />
+                {/* Secondary (alternative) action: perform global search in browser */}
+                <Action
+                  title="Search in Browser"
+                  icon={Icon.Globe}
+                  onAction={handleSearchInBrowser}
+                  shortcut={{ modifiers: ["cmd"], key: "enter" }}
+                />
+              </ActionPanel.Section>
+            </ActionPanel>
+          }
+        />
+        
         ))}
       </List.Section>
       {!shouldSearch && (
