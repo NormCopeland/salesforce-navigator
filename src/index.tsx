@@ -311,7 +311,7 @@ function SelectOptionsView({ org }: { org: Org }) {
                         const util = require("util");
                         const execPromise = util.promisify(exec);
                         await execPromise(`sf org open -p ${page.value} --target-org ${targetOrg}`);
-                        popToRoot();
+                        // pop();
                       } catch (error: any) {
                         await showToast({
                           style: Toast.Style.Failure,
