@@ -222,7 +222,27 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
           }
           actions={
             <ActionPanel>
-              <Action title="Open Record" icon={Icon.OpenInBrowser} onAction={() => open(`${org.instanceUrl}/lightning/r/${apiNameValue}/${record.Id}/view`)} />
+              <Action
+  title="Open Record"
+  icon={Icon.OpenInBrowser}
+  onAction={async () => {
+    try {
+      const targetOrg = org.alias || org.username;
+      const relativeRecordPath = `/lightning/r/${apiNameValue}/${record.Id}/view`;
+      const { exec } = require("child_process");
+      const util = require("util");
+      const execPromise = util.promisify(exec);
+      await execPromise(`sf org open -p "${relativeRecordPath}" --target-org "${targetOrg}"`);
+    } catch (error: any) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Failed to open record",
+        message: error.message,
+      });
+    }
+  }}
+/>
+
               <Action.CopyToClipboard title="Copy Record ID" content={record.Id} />
             </ActionPanel>
           }

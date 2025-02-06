@@ -124,9 +124,11 @@ function parseSobjectsOutput(output: string): SObject[] {
     const parsed = JSON.parse(output);
     const rawRecords = parsed.result?.records || parsed.result || [];
     return rawRecords.map((r: any) => ({
-      id: r.id || r.Id,
-      label: r.label || r.Label || "",
-      developername: r.developername || r.DeveloperName || "",
+      id: r.durableid || r.DurableId || "",
+      // Try Label, then DeveloperName, then fallback to QualifiedApiName or MasterLabel if available.
+      label: r.Label || r.label || r.MasterLabel || r.QualifiedApiName || "",
+      // DeveloperName property as a backup for filtering or building URLs
+      developername: r.DeveloperName || r.developername || r.QualifiedApiName || "",
       EditDefinitionUrl: r.EditDefinitionUrl,
     }));
   } catch (err) {
@@ -135,22 +137,23 @@ function parseSobjectsOutput(output: string): SObject[] {
   }
 }
 
+
 // --------------------------
 // Render SObject Row with Inline Actions
 // --------------------------
-function renderSobjectRow(org: Org, sobj: SObject): JSX.Element {
-  // Use label if available; fallback with developername.
-  const baseLabel = (sobj.label || sobj.developername) || "Unknown SObject";
-  // Lowercase version of developername for keywords.
-  const devLower = (sobj.developername || "").toLowerCase();
-  // Split developername into tokens based on non-alphanumeric characters.
+function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
+  // Use the parsed label or the developername, defaulting if missing.
+  const baseLabel = (sobj.label || sobj.developername || "Unknown SObject").trim();
+
+  // Ensure DeveloperName is safely assigned for further processing.
+  const devName = (sobj.developername || "").trim();
+  const devLower = devName.toLowerCase();
   const tokens = devLower.split(/[^a-z0-9]+/).filter((t) => t.length > 0);
-  // Extract version token if present (like "v2").
   const versionMatch = devLower.match(/v\d+/i);
   const extraTokens = versionMatch ? [versionMatch[0].toLowerCase()] : [];
   const keywords = [baseLabel.toLowerCase(), devLower, ...tokens, ...extraTokens];
 
-  // Build the Settings URL:
+  // Build the full URLs as before.
   let settingsUrl = "";
   if (sobj.EditDefinitionUrl) {
     let base = sobj.EditDefinitionUrl;
@@ -159,28 +162,67 @@ function renderSobjectRow(org: Org, sobj: SObject): JSX.Element {
     }
     settingsUrl = `${org.instanceUrl}/lightning/setup/ObjectManager/${base}/view`;
   } else {
-    settingsUrl = `${org.instanceUrl}/lightning/setup/ObjectManager/${sobj.developername}/Details/view`;
+    settingsUrl = `${org.instanceUrl}/lightning/setup/ObjectManager/${devName}/Details/view`;
   }
-  
-  // Build Main Tab URL:
-  // For custom objects, ensure the API name ends with __c.
-  let apiNameForMainTab = sobj.developername;
-  if (sobj.EditDefinitionUrl && !sobj.developername.endsWith("__c")) {
-    apiNameForMainTab = sobj.developername + "__c";
+
+  let apiNameForMainTab = devName;
+  if (sobj.EditDefinitionUrl && devName && !devName.endsWith("__c")) {
+    apiNameForMainTab = devName + "__c";
   }
   const mainTabUrl = `${org.instanceUrl}/lightning/o/${apiNameForMainTab}/list?filterName=__Recent`;
 
+  // Compute relative paths
+  //(using the URL API ensures a robust extraction).
+
+  const relativeSettingsPath = new URL(settingsUrl).pathname + new URL(settingsUrl).search;
+  const relativeMainTabPath = new URL(mainTabUrl).pathname + new URL(mainTabUrl).search;
+  const targetOrg = org.alias || org.username;
+
   return (
     <List.Item
-      key={sobj.id}
+      key={`${sobj.id}_${index}`}
       title={baseLabel}
-      subtitle={sobj.developername || ""}
+      subtitle={devName}
       icon={Icon.Table}
       keywords={keywords}
       actions={
         <ActionPanel>
-          <Action.OpenInBrowser title="Open Object Page" icon={Icon.Gear} url={settingsUrl} />
-          <Action.OpenInBrowser title="Open Records Page" icon={Icon.Globe} url={mainTabUrl} />
+          <Action
+            title="Open Object Page"
+            icon={Icon.Gear}
+            onAction={async () => {
+              try {
+                const { exec } = require("child_process");
+                const util = require("util");
+                const execPromise = util.promisify(exec);
+                await execPromise(`sf org open -p "${relativeSettingsPath}" --target-org "${targetOrg}"`);
+              } catch (error: any) {
+                await showToast({
+                  style: Toast.Style.Failure,
+                  title: "Failed to open Object Page",
+                  message: error.message,
+                });
+              }
+            }}
+          />
+          <Action
+            title="Open Records Page"
+            icon={Icon.Globe}
+            onAction={async () => {
+              try {
+                const { exec } = require("child_process");
+                const util = require("util");
+                const execPromise = util.promisify(exec);
+                await execPromise(`sf org open -p "${relativeMainTabPath}" --target-org "${targetOrg}"`);
+              } catch (error: any) {
+                await showToast({
+                  style: Toast.Style.Failure,
+                  title: "Failed to open Records Page",
+                  message: error.message,
+                });
+              }
+            }}
+          />
         </ActionPanel>
       }
     />
@@ -290,8 +332,8 @@ function SelectOptionsView({ org }: { org: Org }) {
           ) : sobjects.length === 0 ? (
             <List.Item title="No SObjects found" icon={Icon.MagnifyingGlass} />
           ) : (
-            sobjects.map((sobj) => renderSobjectRow(org, sobj))
-          )}
+            sobjects.map((sobj, index) => renderSobjectRow(org, sobj, index))
+                      )}
         </List.Section>
       )}
       {(filterCategory === "all" || filterCategory === "settings") && (
