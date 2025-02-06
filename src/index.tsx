@@ -322,7 +322,7 @@ function SelectOptionsView({ org }: { org: Org }) {
         </ActionPanel>
       }
     />
-          <List.Item
+          {/* <List.Item
             icon={Icon.Globe}
             title="Global Search"
             subtitle="Open Global Search in Browser"
@@ -340,7 +340,7 @@ function SelectOptionsView({ org }: { org: Org }) {
                 />
               </ActionPanel>
             }
-          />
+          /> */}
           <List.Item
             icon={Icon.Key}
             title="Open by ID"
