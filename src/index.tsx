@@ -3,11 +3,12 @@ import {
   ActionPanel,
   Action,
   Icon,
-  open,
   showToast,
   Toast,
   closeMainWindow,
   useNavigation,
+  Clipboard,
+  showHUD,
 } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { useExec, useCachedState } from "@raycast/utils";
@@ -98,21 +99,53 @@ function OrgListView() {
       <List.Section title="Connected Orgs">
         {orgs.map((org) => (
           <List.Item
-            key={org.username}
-            title={org.alias || org.username}
-            subtitle={org.instanceUrl}
-            icon={Icon.Database}
-            actions={
-              <ActionPanel>
-                <Action.Push
-                  title="Select Options"
-                  icon={Icon.ArrowRight}
-                  target={<SelectOptionsView org={org} />}
-                />
-                <Action title="Refresh Orgs" onAction={() => revalidate()} icon={Icon.ArrowClockwise} />
-              </ActionPanel>
-            }
-          />
+          key={org.username}
+          title={org.alias || org.username}
+          subtitle={org.instanceUrl}
+          icon={Icon.Database}
+          actions={
+            <ActionPanel>
+              <Action.Push
+                title="Select Options"
+                icon={Icon.ArrowRight}
+                target={<SelectOptionsView org={org} />}
+              />
+              <Action
+                title="Copy Org Id"
+                icon={Icon.Clipboard}
+                onAction={async () => {
+                  try {
+                    const { exec } = require("child_process");
+                    const util = require("util");
+                    const execPromise = util.promisify(exec);
+                    const targetOrg = org.alias || org.username;
+                    const { stdout } = await execPromise(`sf org display --target-org "${targetOrg}" --json`);
+                    const parsed = JSON.parse(stdout);
+                    const orgId = parsed.result.id;
+                    await Clipboard.copy(orgId);
+                    // await showToast({
+                    //                 style: Toast.Style.Success,
+                    //                 title: `Org Id Copied for ${targetOrg}!`,
+                    //                 message: `ID: ${orgId}`,
+                    //               });
+                    //               await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                    // await closeMainWindow();
+                    await showHUD(`Org Id copied: ${orgId}`);
+                  } catch (error: any) {
+                    await showToast({
+                      style: Toast.Style.Failure,
+                      title: "Failed to copy Org Id",
+                      message: error.message,
+                    });
+                  }
+                }}
+              />
+              <Action title="Refresh Orgs" onAction={() => revalidate()} icon={Icon.ArrowClockwise} />
+            </ActionPanel>
+          }
+        />
+        
         ))}
       </List.Section>
     </List>

@@ -8,6 +8,7 @@ import {
   Toast,
   BrowserExtension,
   Icon,
+  showHUD,
 } from "@raycast/api";
 
 type SalesforceTab = {
@@ -60,11 +61,12 @@ function SalesforceTabItem({ tab }: { tab: SalesforceTab }) {
             title="Copy SF ID"
             onAction={async () => {
               await Clipboard.copy(tab.recordId);
-              await showToast({
-                style: Toast.Style.Success,
-                title: `SF ID from ${tab.orgName} Copied!`,
-                message: `ID: ${tab.recordId}`,
-              });
+              // await showToast({
+              //   style: Toast.Style.Success,
+              //   title: `SF ID from ${tab.orgName} Copied!`,
+              //   message: `ID: ${tab.recordId}`,
+              // });
+              await showHUD(`SF ID from ${tab.orgName} (${tab.recordId}) Copied!`);
             }}
           />
           <Action.OpenInBrowser title="Open Tab" url={tab.url} icon={Icon.Globe} />
