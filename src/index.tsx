@@ -403,7 +403,7 @@ function SelectOptionsView({ org }: { org: Org }) {
           />
           {/* New SOQLX action */}
           <List.Item
-            icon={Icon.Link}
+            icon={Icon.List}
             title="Open in SoqlXplorer"
             subtitle="Launch SoqlXplorer with your session"
             actions={<ActionPanel><OpenInSOQLXAction targetOrg={targetOrg} /></ActionPanel>}
