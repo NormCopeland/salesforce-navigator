@@ -6,6 +6,7 @@ import {
   open,
   showToast,
   Toast,
+  closeMainWindow,
   useNavigation,
 } from "@raycast/api";
 import { useState, useEffect } from "react";
@@ -30,6 +31,7 @@ type SObject = {
   label: string;
   developername: string;
   EditDefinitionUrl?: string;
+  QualifiedApiName: string;
 };
 
 // --------------------------
@@ -126,10 +128,10 @@ function parseSobjectsOutput(output: string): SObject[] {
     const rawRecords = parsed.result?.records || parsed.result || [];
     return rawRecords.map((r: any) => ({
       id: r.durableid || r.DurableId || "",
-      // Try Label, then DeveloperName, then fallback to QualifiedApiName or MasterLabel if available.
       label: r.Label || r.label || r.MasterLabel || r.QualifiedApiName || "",
-      // DeveloperName property as a backup for filtering or building URLs
       developername: r.DeveloperName || r.developername || r.QualifiedApiName || "",
+      // Make sure to include QualifiedApiName
+      QualifiedApiName: r.QualifiedApiName || r.qualifiedApiName || "",
       EditDefinitionUrl: r.EditDefinitionUrl,
     }));
   } catch (err) {
@@ -138,7 +140,6 @@ function parseSobjectsOutput(output: string): SObject[] {
   }
 }
 
-
 // --------------------------
 // Render SObject Row with Inline Actions
 // --------------------------
@@ -146,15 +147,10 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
   // Use the parsed label or the developername, defaulting if missing.
   const baseLabel = (sobj.label || sobj.developername || "Unknown SObject").trim();
 
-  // Ensure DeveloperName is safely assigned for further processing.
-  const devName = (sobj.developername || "").trim();
-  const devLower = devName.toLowerCase();
-  const tokens = devLower.split(/[^a-z0-9]+/).filter((t) => t.length > 0);
-  const versionMatch = devLower.match(/v\d+/i);
-  const extraTokens = versionMatch ? [versionMatch[0].toLowerCase()] : [];
-  const keywords = [baseLabel.toLowerCase(), devLower, ...tokens, ...extraTokens];
-
-  // Build the full URLs as before.
+  // For keywords, we simply use the baseLabel in lowercase for now.
+  const keywords = [baseLabel.toLowerCase()];
+  
+  // Build the Settings URL (leave this as is).
   let settingsUrl = "";
   if (sobj.EditDefinitionUrl) {
     let base = sobj.EditDefinitionUrl;
@@ -163,18 +159,15 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
     }
     settingsUrl = `${org.instanceUrl}/lightning/setup/ObjectManager/${base}/view`;
   } else {
-    settingsUrl = `${org.instanceUrl}/lightning/setup/ObjectManager/${devName}/Details/view`;
+    // Fallback using developername; we leave this unchanged.
+    settingsUrl = `${org.instanceUrl}/lightning/setup/ObjectManager/${sobj.developername}/Details/view`;
   }
 
-  let apiNameForMainTab = devName;
-  if (sobj.EditDefinitionUrl && devName && !devName.endsWith("__c")) {
-    apiNameForMainTab = devName + "__c";
-  }
-  const mainTabUrl = `${org.instanceUrl}/lightning/o/${apiNameForMainTab}/list?filterName=__Recent`;
+  // Build the Records (main tab) URL.
+  // Instead of deriving the API name from developername, we use QualifiedApiName directly.
+  const mainTabUrl = `${org.instanceUrl}/lightning/o/${sobj.QualifiedApiName}/list?filterName=__Recent`;
 
-  // Compute relative paths
-  //(using the URL API ensures a robust extraction).
-
+  // Compute relative paths (using URL API):
   const relativeSettingsPath = new URL(settingsUrl).pathname + new URL(settingsUrl).search;
   const relativeMainTabPath = new URL(mainTabUrl).pathname + new URL(mainTabUrl).search;
   const targetOrg = org.alias || org.username;
@@ -183,7 +176,7 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
     <List.Item
       key={`${sobj.id}_${index}`}
       title={baseLabel}
-      subtitle={devName}
+      subtitle={sobj.QualifiedApiName}  // Display the QualifiedApiName for clarity.
       icon={Icon.Table}
       keywords={keywords}
       actions={
@@ -197,6 +190,7 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
                 const util = require("util");
                 const execPromise = util.promisify(exec);
                 await execPromise(`sf org open -p "${relativeSettingsPath}" --target-org "${targetOrg}"`);
+                await closeMainWindow();
               } catch (error: any) {
                 await showToast({
                   style: Toast.Style.Failure,
@@ -215,6 +209,7 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
                 const util = require("util");
                 const execPromise = util.promisify(exec);
                 await execPromise(`sf org open -p "${relativeMainTabPath}" --target-org "${targetOrg}"`);
+                await closeMainWindow();
               } catch (error: any) {
                 await showToast({
                   style: Toast.Style.Failure,
@@ -242,7 +237,7 @@ function SelectOptionsView({ org }: { org: Org }) {
 
   // Query SObjects via CLI.
   const sObjectsQuery =
-    'SELECT Id, Label, DeveloperName, EditDefinitionUrl FROM entitydefinition WHERE isQueryable = true AND isSearchable = true ORDER BY DeveloperName ASC';
+    'SELECT Id, Label, QualifiedApiName, DeveloperName, EditDefinitionUrl FROM entitydefinition WHERE isQueryable = true AND isSearchable = true ORDER BY DeveloperName ASC';
   const {
     isLoading: isLoadingSobjects,
     data: sobjectsOutput,
@@ -370,6 +365,7 @@ function SelectOptionsView({ org }: { org: Org }) {
                         const util = require("util");
                         const execPromise = util.promisify(exec);
                         await execPromise(`sf org open -p ${page.value} --target-org ${targetOrg}`);
+                        await closeMainWindow();
                         // pop();
                       } catch (error: any) {
                         await showToast({
