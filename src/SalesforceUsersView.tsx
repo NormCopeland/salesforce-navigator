@@ -163,7 +163,7 @@ import {
     // Action handlers.
     async function handleOpenUserRecord(user: UserRecord) {
       try {
-        const relativePath = `/lightning/r/User/${user.Id}/view`;
+        const relativePath = `/lightning/setup/ManageUsers/page?address=/${user.Id}?noredirect%3D1%26isUserEntityOverride%3D1`;
         const { exec } = require("child_process");
         const util = require("util");
         const execPromise = util.promisify(exec);
