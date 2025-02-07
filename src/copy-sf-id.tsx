@@ -161,7 +161,7 @@ export default function Command() {
   }, []);
 
   return (
-    <List isLoading={isLoading} navigationTitle="Open Salesforce Tabs">
+    <List isLoading={isLoading} navigationTitle="Copy SF ID">
       <List.Section title="Salesforce Tabs">
         {sfTabs.map((tab) => (
           <SalesforceTabItem key={tab.id} tab={tab} />

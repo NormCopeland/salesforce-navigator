@@ -1,15 +1,15 @@
-import { List, ActionPanel, Action, Icon, showToast, Toast, open } from "@raycast/api";
+import { List, ActionPanel, Action, Icon, showToast, Toast, open, getPreferenceValues } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { useExec } from "@raycast/utils";
 
-// Define a minimal Org type.
+// Define minimal Org type.
 type Org = {
   username: string;
   alias: string;
   instanceUrl: string;
 };
 
-// Define the type for each search record returned by the CLI.
+// Type for each search record returned from the FIND query.
 type SearchRecord = {
   Id: string;
   Name: string;
@@ -18,30 +18,109 @@ type SearchRecord = {
   };
 };
 
-// Define the overall structure of the CLI command's JSON response.
+// Overall structure of the FIND query result.
 type SearchResult = {
   result: {
     searchRecords: SearchRecord[];
   };
 };
 
+// Type for a searchable object (from EntityDefinition query)
+type SearchableObject = {
+  QualifiedApiName: string;
+  Label: string;
+  DurableId: string;
+};
+
+// Define Preferences interface for your extension.
+interface Preferences {
+  searchLimit: string; // Note: preference values are strings.
+}
+
 export default function GlobalSearchResultsView({ org }: { org: Org }) {
   const targetOrg = org.alias || org.username;
+  const preferences = getPreferenceValues<Preferences>();
+  const limitValue = parseInt(preferences.searchLimit, 10) || 50; // default to 50 if parsing fails
+
   const [searchText, setSearchText] = useState("");
   const [records, setRecords] = useState<SearchRecord[]>([]);
-  
-  // When no search term is provided, use a default echo command.
+  const [searchableObjects, setSearchableObjects] = useState<SearchableObject[]>([]);
+
+  // ------------------------------
+  // Step 1: Retrieve Searchable Objects from Salesforce
+  // ------------------------------
+  const searchableQuery = `sf data query --query "SELECT QualifiedApiName, Label, DurableId FROM EntityDefinition WHERE IsSearchable = true AND IsQueryable = true AND IsCustomSetting = false AND IsDeprecatedAndHidden = false ORDER BY QualifiedApiName" --target-org "${targetOrg}" --json`;
+  const { data: searchableData } = useExec(searchableQuery, [], { shell: true });
+
+  useEffect(() => {
+    async function parseSearchableObjects() {
+      if (searchableData) {
+        try {
+          const parsed = JSON.parse(searchableData);
+          const objs: SearchableObject[] = parsed.result.records || [];
+          // Filter out objects that are known to cause errors.
+          const filteredObjs = objs.filter(
+            (obj) => !["AssetRelationship", "AssignmentRule"].includes(obj.QualifiedApiName)
+          );
+          // We only need custom objects (i.e. where DurableId !== QualifiedApiName)
+          const customObjects = filteredObjs.filter(obj => obj.DurableId !== obj.QualifiedApiName);
+          setSearchableObjects(customObjects);
+        } catch (error: any) {
+          await showToast({
+            style: Toast.Style.Failure,
+            title: "Failed to parse searchable objects",
+            message: error.message,
+          });
+        }
+      }
+    }
+    parseSearchableObjects();
+  }, [searchableData]);
+
+  // ------------------------------
+  // Step 2: Build a Dynamic FIND Query
+  // ------------------------------
+  // Standard objects we always include:
+  const standardFragments = [
+    "Account(Id,Name)",
+    "Contact(Id,Name)",
+    "Opportunity(Id,Name)",
+    "Campaign(Id,Name)",
+    "Case(Id,CaseNumber)",
+    "Product2(Id,Name)",
+  ];
+
+  // Build fragments for custom objects from searchableObjects.
+  const customFragments =
+    searchableObjects.length > 0
+      ? searchableObjects.map(obj => `${obj.QualifiedApiName}(Id,Name)`)
+      : [];
+
+  // Combine standard and custom fragments.
+  const returningClause = standardFragments.concat(customFragments).join(", ");
+
   const trimmedSearchText = searchText.trim();
   const shouldSearch = trimmedSearchText.length > 0;
-  const queryCommand = shouldSearch
-    ? `sf data search --query "FIND {${trimmedSearchText}} IN ALL FIELDS RETURNING Account(Id,Name), Contact(Id,Name) LIMIT 50" --target-org "${targetOrg}" --json`
-    : `echo '{ "result": { "searchRecords": [] } }'`;
+  
+  // Build the FIND query if search is triggered.
+  const findQuery =
+    shouldSearch && returningClause
+      ? `FIND {${trimmedSearchText}} IN ALL FIELDS RETURNING ${returningClause} LIMIT ${limitValue}`
+      : "";
 
-  // useExec always runs; we pass in our queryCommand.
+  // If no search term is provided, use a safe echo command.
+  const queryCommand =
+    shouldSearch && findQuery.length > 0
+      ? `sf data search --query "${findQuery}" --target-org "${targetOrg}" --json`
+      : `echo '{ "result": { "searchRecords": [] } }'`;
+
+  // ------------------------------
+  // Step 3: Execute the FIND Query
+  // ------------------------------
   const { isLoading, data, revalidate } = useExec(queryCommand, [], { shell: true });
 
   useEffect(() => {
-    async function parseData() {
+    async function parseSearchResults() {
       if (data) {
         try {
           const parsed: SearchResult = JSON.parse(data);
@@ -57,10 +136,28 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
         setRecords([]);
       }
     }
-    parseData();
+    parseSearchResults();
   }, [data]);
 
-  // Global search action: this will open the default Salesforce global search page in the browser.
+  // ------------------------------
+  // Step 4: Action Handlers
+  // ------------------------------
+  async function handleOpenRecord(record: SearchRecord) {
+    try {
+      const relativeRecordPath = `/lightning/r/${record.attributes.type}/${record.Id}/view`;
+      const { exec } = require("child_process");
+      const util = require("util");
+      const execPromise = util.promisify(exec);
+      await execPromise(`sf org open -p "${relativeRecordPath}" --target-org "${targetOrg}"`);
+    } catch (error: any) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Failed to open record",
+        message: error.message,
+      });
+    }
+  }
+
   async function handleSearchInBrowser() {
     if (!trimmedSearchText) {
       await showToast({
@@ -69,7 +166,6 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
       });
       return;
     }
-    // Build the global search payload
     const payload = {
       componentDef: "forceSearch:searchPageDesktop",
       attributes: {
@@ -81,7 +177,6 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
     };
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64");
     const fullUrl = `${org.instanceUrl}/one/one.app#${encodedPayload}`;
-    // Use the URL API to extract the relative portion
     const urlObj = new URL(fullUrl);
     const relativeGlobalPath = urlObj.pathname + urlObj.search + urlObj.hash;
     try {
@@ -97,7 +192,10 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
       });
     }
   }
-  
+
+  // ------------------------------
+  // Render the List
+  // ------------------------------
   return (
     <List
       isLoading={isLoading}
@@ -107,13 +205,13 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
       navigationTitle="Salesforce Global Search"
       actions={
         <ActionPanel>
-          {/* This action lets the user choose to open the standard global search in browser */}
+          {/* Always available global search action */}
           <Action
             title="Search in Browser"
             icon={Icon.Globe}
             onAction={handleSearchInBrowser}
+            shortcut={{ modifiers: ["cmd"], key: "enter" }}
           />
-          {/* Can also revalidate the search if needed */}
           <Action title="Reload" icon={Icon.ArrowClockwise} onAction={() => revalidate()} />
         </ActionPanel>
       }
@@ -121,37 +219,30 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
       <List.Section title="Search Results">
         {records.map((record) => (
           <List.Item
-          key={record.Id}
-          title={record.Name}
-          subtitle={record.Id}
-          icon={Icon.Document}
-          actions={
-            <ActionPanel>
-              <ActionPanel.Section>
-                {/* Primary action: open record using Salesforce CLI */}
+            key={record.Id}
+            title={record.Name}
+            // Instead of showing the record ID, use the record type from the attributes as the subtitle.
+            subtitle={record.attributes.type}
+            icon={Icon.Document}
+            actions={
+              <ActionPanel>
                 <Action
                   title={`Open ${record.attributes.type} Record`}
                   icon={Icon.OpenInBrowser}
                   onAction={() => handleOpenRecord(record)}
-                  shortcut={{ modifiers: [], key: "enter" }}
                 />
-                {/* Secondary (alternative) action: perform global search in browser */}
                 <Action
                   title="Search in Browser"
                   icon={Icon.Globe}
                   onAction={handleSearchInBrowser}
                   shortcut={{ modifiers: ["cmd"], key: "enter" }}
                 />
-              </ActionPanel.Section>
-            </ActionPanel>
-          }
-        />
-        
+              </ActionPanel>
+            }
+          />
         ))}
       </List.Section>
-      {!shouldSearch && (
-        <List.EmptyView icon={Icon.MagnifyingGlass} title="Enter a search term to begin." />
-      )}
+      {!shouldSearch && <List.EmptyView icon={Icon.MagnifyingGlass} title="Enter a search term to begin." />}
     </List>
   );
 }

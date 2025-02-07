@@ -20,6 +20,15 @@
     "@raycast/api": "^1.90.0",
     "@raycast/utils": "^1.17.0"
   },
+  "preferences": [
+    {
+    "name": "searchLimit", 
+      "type": "textfield",
+      "title": "Search Result Limit",
+      "description": "The maximum number of search results returned in a search query.",
+      "default": "50"
+    }
+  ],  
   "devDependencies": {
     "eslint": "^8.57.0",
     "prettier": "^3.3.3",

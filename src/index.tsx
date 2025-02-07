@@ -189,7 +189,7 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
       actions={
         <ActionPanel>
           <Action
-            title="Open Object Page"
+            title="Open Object Settings"
             icon={Icon.Gear}
             onAction={async () => {
               try {
@@ -200,7 +200,7 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
               } catch (error: any) {
                 await showToast({
                   style: Toast.Style.Failure,
-                  title: "Failed to open Object Page",
+                  title: "Failed to open Object Settings",
                   message: error.message,
                 });
               }
@@ -353,24 +353,6 @@ function SelectOptionsView({ org }: { org: Org }) {
           />
         </List.Section>
       )}
-      {(filterCategory === "all" || filterCategory === "sobjects") && (
-        <List.Section
-          title="SObjects"
-          accessory={
-            <Action title="Refresh SObjects" icon={Icon.ArrowClockwise} onAction={() => revalidateSobjects()} />
-          }
-        >
-          {isLoadingSobjects ? (
-            <List.Item title="Loading SObjects…" icon={Icon.CircleProgress} />
-          ) : sobjectsError ? (
-            <List.Item title="Failed to load SObjects" icon={Icon.Warning} />
-          ) : sobjects.length === 0 ? (
-            <List.Item title="No SObjects found" icon={Icon.MagnifyingGlass} />
-          ) : (
-            sobjects.map((sobj, index) => renderSobjectRow(org, sobj, index))
-                      )}
-        </List.Section>
-      )}
       {(filterCategory === "all" || filterCategory === "settings") && (
         <List.Section title="Settings Pages">
           {PAGES.map((page: { title: string; value: string }) => (
@@ -402,6 +384,24 @@ function SelectOptionsView({ org }: { org: Org }) {
               }
             />
           ))}
+        </List.Section>
+      )}
+      {(filterCategory === "all" || filterCategory === "sobjects") && (
+        <List.Section
+          title="SObjects"
+          accessory={
+            <Action title="Refresh SObjects" icon={Icon.ArrowClockwise} onAction={() => revalidateSobjects()} />
+          }
+        >
+          {isLoadingSobjects ? (
+            <List.Item title="Loading SObjects…" icon={Icon.CircleProgress} />
+          ) : sobjectsError ? (
+            <List.Item title="Failed to load SObjects" icon={Icon.Warning} />
+          ) : sobjects.length === 0 ? (
+            <List.Item title="No SObjects found" icon={Icon.MagnifyingGlass} />
+          ) : (
+            sobjects.map((sobj, index) => renderSobjectRow(org, sobj, index))
+                      )}
         </List.Section>
       )}
     </List>
