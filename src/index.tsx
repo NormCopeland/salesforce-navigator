@@ -16,6 +16,7 @@ import PAGES from "../data/SFPages.json";
 import SalesforceSearchView from "./SalesforceSearchView";
 import OpenIdView from "./OpenIdView";
 import GlobalSearchResultsView from "./GlobalSearchResultsView";
+import SalesforceUsersView from "./SalesforceUsersView";
 
 // --------------------------
 // Type Definitions
@@ -362,6 +363,18 @@ function SelectOptionsView({ org }: { org: Org }) {
               </ActionPanel>
             }
           />
+          <List.Item
+  key="global-search-users"
+  title="Users"
+  subtitle="View Salesforce Users"
+  icon={Icon.Person}
+  actions={
+    <ActionPanel>
+      <Action.Push title="View Users" target={<SalesforceUsersView org={org} />} icon={Icon.ArrowRight} />
+    </ActionPanel>
+  }
+/>
+
         </List.Section>
       )}
       {(filterCategory === "all" || filterCategory === "settings") && (
