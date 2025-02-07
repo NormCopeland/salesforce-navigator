@@ -42,7 +42,7 @@ import {
     searchLimit: string;
   }
   
-  type UserStatusFilter = "Active" | "Inactive" | "All";
+  type UserStatusFilter = "Active" | "Inactive" | "All" |"All (Active)";
   
   export default function SalesforceUsersView({ org }: { org: Org }) {
     const targetOrg = org.alias || org.username;
@@ -57,10 +57,12 @@ import {
     const buildQuery = useCallback(() => {
       let baseQuery = `SELECT Id, Name, username, alias, email, Profile.Name FROM User`;
       if (statusFilter === "Active") {
-        baseQuery += " WHERE isActive = true";
+        baseQuery += " WHERE isActive = true AND Profile.UserLicense.Name = 'Salesforce'";
       } else if (statusFilter === "Inactive") {
-        baseQuery += " WHERE isActive = false";
-      }
+        baseQuery += " WHERE isActive = false AND Profile.UserLicense.Name = 'Salesforce'";
+      } else if (statusFilter === "All (Active)") {
+        baseQuery += " WHERE isActive = true";
+      } 
       const trimmed = searchText.trim();
       if (trimmed.length > 0) {
         const sanitized = trimmed.replace(/[^\w\s]/g, "");
@@ -122,7 +124,8 @@ import {
         <List.Dropdown.Section title="Status">
           <List.Dropdown.Item value="Active" title="Active" />
           <List.Dropdown.Item value="Inactive" title="Inactive" />
-          <List.Dropdown.Item value="All" title="All" />
+            <List.Dropdown.Item value="All" title="All" />
+          <List.Dropdown.Item value="All (Active)" title="All (Active)" />
         </List.Dropdown.Section>
       </List.Dropdown>
     );
