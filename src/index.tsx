@@ -401,6 +401,34 @@ function SelectOptionsView({ org }: { org: Org }) {
               </ActionPanel>
             }
           />
+          <List.Item
+            icon={Icon.Code}
+            title="Console"
+            subtitle="Open Developer Console"
+            actions={
+              <ActionPanel>
+                <Action
+                  title="Open Console"
+                  icon={Icon.Code}
+                  onAction={async () => {
+                    try {
+                      const { exec } = require("child_process");
+                      const util = require("util");
+                      const execPromise = util.promisify(exec);
+                      await execPromise(`sf org open -p "/_ui/common/apex/debug/ApexCSIPage" --target-org "${targetOrg}"`);
+                      await closeMainWindow();
+                    } catch (error: any) {
+                      await showToast({
+                        style: Toast.Style.Failure,
+                        title: "Failed to open Home Page",
+                        message: error.message,
+                      });
+                    }
+                  }}
+                />
+              </ActionPanel>
+            }
+          />
           {/* New SOQLX action */}
           <List.Item
             icon={Icon.List}
