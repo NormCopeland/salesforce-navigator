@@ -288,7 +288,7 @@ function SelectOptionsView({ org }: { org: Org }) {
     "--json",
   ]);
 
-  // Cache sobjects using useCachedState so that they persist between runs.
+  // Cache sObjects using useCachedState so that they persist between runs.
   const [sobjects, setSobjects] = useCachedState<SObject[]>(`sobjects-${targetOrg}`, []);
   useEffect(() => {
     if (sobjectsOutput) {
@@ -315,44 +315,22 @@ function SelectOptionsView({ org }: { org: Org }) {
 
   return (
     <List navigationTitle={`Salesforce: ${org.alias || org.username}`} searchBarAccessory={filterAccessory}>
-
-
-
       {(filterCategory === "all" || filterCategory === "general") && (
         <List.Section>
           <List.Item
-      icon={Icon.Globe}
-      title="Global Search"
-      subtitle="Search Across all Objects"
-      actions={
-        <ActionPanel>
-          <Action.Push
-            title="Show Global Search Results"
-            icon={Icon.Globe}
-            target={<GlobalSearchResultsView org={org} />}
-          />
-        </ActionPanel>
-      }
-    />
-          {/* <List.Item
             icon={Icon.Globe}
             title="Global Search"
-            subtitle="Open Global Search in Browser"
+            subtitle="Search Across all Objects"
             actions={
               <ActionPanel>
                 <Action.Push
-                  title="Global Search"
+                  title="Show Global Search Results"
                   icon={Icon.Globe}
-                  target={
-                    <SalesforceSearchView
-                      org={org}
-                      sobject={{ Label: "Global Search", DeveloperName: "global" }}
-                    />
-                  }
+                  target={<GlobalSearchResultsView org={org} />}
                 />
               </ActionPanel>
             }
-          /> */}
+          />
           <List.Item
             icon={Icon.Key}
             title="Open by ID"
@@ -364,17 +342,45 @@ function SelectOptionsView({ org }: { org: Org }) {
             }
           />
           <List.Item
-  key="global-search-users"
-  title="Users"
-  subtitle="View Salesforce Users"
-  icon={Icon.Person}
-  actions={
-    <ActionPanel>
-      <Action.Push title="View Users" target={<SalesforceUsersView org={org} />} icon={Icon.ArrowRight} />
-    </ActionPanel>
-  }
-/>
-
+            key="global-search-users"
+            icon={Icon.Person}
+            title="Users"
+            subtitle="View Salesforce Users"
+            actions={
+              <ActionPanel>
+                <Action.Push title="View Users" target={<SalesforceUsersView org={org} />} icon={Icon.ArrowRight} />
+              </ActionPanel>
+            }
+          />
+          {/* New Home action */}
+          <List.Item
+            icon={Icon.House}
+            title="Home"
+            subtitle="Open Org Home Page"
+            actions={
+              <ActionPanel>
+                <Action
+                  title="Open Home"
+                  icon={Icon.House}
+                  onAction={async () => {
+                    try {
+                      const { exec } = require("child_process");
+                      const util = require("util");
+                      const execPromise = util.promisify(exec);
+                      await execPromise(`sf org open --target-org "${targetOrg}"`);
+                      await closeMainWindow();
+                    } catch (error: any) {
+                      await showToast({
+                        style: Toast.Style.Failure,
+                        title: "Failed to open Home Page",
+                        message: error.message,
+                      });
+                    }
+                  }}
+                />
+              </ActionPanel>
+            }
+          />
         </List.Section>
       )}
       {(filterCategory === "all" || filterCategory === "settings") && (
@@ -395,7 +401,6 @@ function SelectOptionsView({ org }: { org: Org }) {
                         const execPromise = util.promisify(exec);
                         await execPromise(`sf org open -p ${page.value} --target-org ${targetOrg}`);
                         await closeMainWindow();
-                        // pop();
                       } catch (error: any) {
                         await showToast({
                           style: Toast.Style.Failure,
@@ -414,9 +419,7 @@ function SelectOptionsView({ org }: { org: Org }) {
       {(filterCategory === "all" || filterCategory === "sobjects") && (
         <List.Section
           title="SObjects"
-          accessory={
-            <Action title="Refresh SObjects" icon={Icon.ArrowClockwise} onAction={() => revalidateSobjects()} />
-          }
+          accessory={<Action title="Refresh SObjects" icon={Icon.ArrowClockwise} onAction={() => revalidateSobjects()} />}
         >
           {isLoadingSobjects ? (
             <List.Item title="Loading SObjects…" icon={Icon.CircleProgress} />
@@ -426,7 +429,7 @@ function SelectOptionsView({ org }: { org: Org }) {
             <List.Item title="No SObjects found" icon={Icon.MagnifyingGlass} />
           ) : (
             sobjects.map((sobj, index) => renderSobjectRow(org, sobj, index))
-                      )}
+          )}
         </List.Section>
       )}
     </List>

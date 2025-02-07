@@ -6,9 +6,8 @@ import {
     showToast,
     Toast,
     Clipboard,
-    showHUD,
-    getPreferenceValues,
     open,
+    getPreferenceValues
   } from "@raycast/api";
   import { useState, useEffect, useCallback } from "react";
   import { useExec } from "@raycast/utils";
@@ -29,9 +28,10 @@ import {
     alias: string;
     email: string;
     profileName: string;
+    roleName: string;
+    lastLoginDate: string;
   };
   
-  // Overall structure of the query result.
   type QueryResult = {
     result: {
       records: any[];
@@ -42,27 +42,44 @@ import {
     searchLimit: string;
   }
   
-  type UserStatusFilter = "Active" | "Inactive" | "All" |"All (Active)";
+  type UserStatusFilter = "Active" | "Inactive" | "All" | "All (Active)";
+  
+  // Helper to format login date.
+  function formatLoginDate(dateStr: string): string {
+    if (!dateStr) return "";
+    const dt = new Date(dateStr);
+    const options: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    };
+    const formatted = dt.toLocaleString("en-CA", options);
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return `${formatted} (${tz})`;
+  }
   
   export default function SalesforceUsersView({ org }: { org: Org }) {
     const targetOrg = org.alias || org.username;
     const preferences = getPreferenceValues<Preferences>();
     const limitValue = parseInt(preferences.searchLimit, 10) || 50;
-  
+    
     const [searchText, setSearchText] = useState("");
     const [statusFilter, setStatusFilter] = useState<UserStatusFilter>("Active");
     const [users, setUsers] = useState<UserRecord[]>([]);
-  
-    // Build the query.
+    
+    // Build the SOQL query, including LastLoginDate and UserRole.Name.
     const buildQuery = useCallback(() => {
-      let baseQuery = `SELECT Id, Name, username, alias, email, Profile.Name FROM User`;
+      let baseQuery = `SELECT Id, Name, username, alias, email, Profile.Name, UserRole.Name, LastLoginDate FROM User`;
       if (statusFilter === "Active") {
         baseQuery += " WHERE isActive = true AND Profile.UserLicense.Name = 'Salesforce'";
       } else if (statusFilter === "Inactive") {
         baseQuery += " WHERE isActive = false AND Profile.UserLicense.Name = 'Salesforce'";
       } else if (statusFilter === "All (Active)") {
         baseQuery += " WHERE isActive = true";
-      } 
+      }
       const trimmed = searchText.trim();
       if (trimmed.length > 0) {
         const sanitized = trimmed.replace(/[^\w\s]/g, "");
@@ -72,23 +89,21 @@ import {
       baseQuery += ` LIMIT ${limitValue}`;
       return baseQuery;
     }, [statusFilter, searchText, limitValue]);
-  
+    
     const queryCommand = useCallback(() => {
       const soql = buildQuery();
       return `sf data query --query "${soql}" --json --target-org "${targetOrg}"`;
     }, [buildQuery, targetOrg]);
-  
-    // Execute query.
+    
+    // Execute the query.
     const { isLoading, data, revalidate } = useExec(queryCommand(), [], { shell: true });
-  
+    
     // Parse query results.
     useEffect(() => {
         async function parseUsers() {
           if (data) {
             try {
               const parsed: QueryResult = JSON.parse(data);
-              // Transform each record into our UserRecord type,
-              // using fallback values for casing differences.
               const recs: UserRecord[] = parsed.result.records.map((record: any) => {
                 return {
                   Id: record.Id || record.id || "",
@@ -96,8 +111,23 @@ import {
                   username: record.username || record.Username || "",
                   alias: record.alias || record.Alias || "",
                   email: record.email || record.Email || "",
-                  profileName: record.Profile && (record.Profile.Name || record.Profile.name) ? (record.Profile.Name || record.Profile.name) : "",
+                  profileName:
+                    record.Profile && (record.Profile.Name || record.Profile.name)
+                      ? record.Profile.Name || record.Profile.name
+                      : "",
+                  roleName:
+                    record.UserRole && (record.UserRole.Name || record.UserRole.name)
+                      ? record.UserRole.Name || record.UserRole.name
+                      : "",
+                  lastLoginDate: record.LastLoginDate || record.lastLoginDate || "",
                 };
+              });
+              // sort the recs in descending order by lastLoginDate – most recent first.
+              // If lastLoginDate is empty, new Date("") returns an Invalid Date (NaN), so be cautious.
+              recs.sort((a, b) => {
+                const dateA = new Date(a.lastLoginDate).getTime();
+                const dateB = new Date(b.lastLoginDate).getTime();
+                return dateB - dateA; // descending order
               });
               setUsers(recs);
             } catch (error: any) {
@@ -114,7 +144,7 @@ import {
         parseUsers();
       }, [data]);
       
-    // Dropdown to choose status.
+    // Dropdown for status filter.
     const filterAccessory = (
       <List.Dropdown
         tooltip="Filter Users"
@@ -124,13 +154,13 @@ import {
         <List.Dropdown.Section title="Status">
           <List.Dropdown.Item value="Active" title="Active" />
           <List.Dropdown.Item value="Inactive" title="Inactive" />
-            <List.Dropdown.Item value="All" title="All" />
+          <List.Dropdown.Item value="All" title="All" />
           <List.Dropdown.Item value="All (Active)" title="All (Active)" />
         </List.Dropdown.Section>
       </List.Dropdown>
     );
-  
-    // Action Handlers.
+    
+    // Action handlers.
     async function handleOpenUserRecord(user: UserRecord) {
       try {
         const relativePath = `/lightning/r/User/${user.Id}/view`;
@@ -146,53 +176,45 @@ import {
         });
       }
     }
-  
+    
     async function handleLoginAsUser(user: UserRecord) {
-        try {
-          // Build the full login URL.
-          const fullUrl = `${org.instanceUrl}/servlet/servlet.su?oid=${org.orgId}&suorgadminid=${user.Id}&retURL=/&targetURL=%2Fhome%2Fhome.jsp`;
-          // For debugging, copy the full URL
-          //await Clipboard.copy(fullUrl);
-          //await showHUD(`Login URL copied to clipboard`);
-          // Use Raycast's open() function instead of invoking sf command.
-          await open(fullUrl);
-        } catch (error: any) {
-          await showToast({
-            style: Toast.Style.Failure,
-            title: "Failed to initiate Login as User",
-            message: error.message,
-          });
-        }
+      try {
+        const fullUrl = `${org.instanceUrl}/servlet/servlet.su?oid=${org.orgId}&suorgadminid=${user.Id}&retURL=/&targetURL=%2Fhome%2Fhome.jsp`;
+        await open(fullUrl);
+      } catch (error: any) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Failed to initiate Login as User",
+          message: error.message,
+        });
       }
-      
-      
-      
-      
+    }
+    
     async function handleCopy(field: keyof UserRecord, user: UserRecord, fieldLabel: string) {
-        try {
-          const value = user[field];
-          if (value === undefined || value === null || value.toString().trim() === "") {
-            await showToast({
-              style: Toast.Style.Failure,
-              title: `Failed to copy ${fieldLabel}`,
-              message: `${fieldLabel} is not available`,
-            });
-            return;
-          }
-          await Clipboard.copy(value.toString());
-          // Show a HUD success message
-          await showHUD(`Copied ${fieldLabel} successfully!`);
-        } catch (error: any) {
+      try {
+        const value = user[field];
+        if (value === undefined || value === null || value.toString().trim() === "") {
           await showToast({
             style: Toast.Style.Failure,
             title: `Failed to copy ${fieldLabel}`,
-            message: error.message,
+            message: `${fieldLabel} is not available`,
           });
+          return;
         }
+        await Clipboard.copy(value.toString());
+        await showHUD(`Copied ${fieldLabel} successfully!`);
+      } catch (error: any) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: `Failed to copy ${fieldLabel}`,
+          message: error.message,
+        });
       }
-      
-      
-  
+    }
+    
+    // ------------------------------
+    // Render the list with detail view.
+    // ------------------------------
     return (
       <List
         isLoading={isLoading}
@@ -201,6 +223,7 @@ import {
         throttle
         navigationTitle="Salesforce Users"
         searchBarAccessory={filterAccessory}
+        isShowingDetail
         actions={
           <ActionPanel>
             <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={() => revalidate()} />
@@ -208,36 +231,67 @@ import {
         }
       >
         <List.Section title="Users">
-          {users.map((user) => (
-            <List.Item
-              key={user.Id}
-              title={user.Name}
-              subtitle={user.profileName}
-              icon={Icon.Person}
-              actions={
-                <ActionPanel>
-                  <ActionPanel.Section>
-                    <Action
-                      title="Open User's Record"
-                      icon={Icon.OpenInBrowser}
-                      onAction={() => handleOpenUserRecord(user)}
-                    />
-                    <Action
-                      title="Login as User"
-                      icon={Icon.SwitchHorizontal}
-                      onAction={() => handleLoginAsUser(user)}
-                    />
-                  </ActionPanel.Section>
-                  <ActionPanel.Section>
-                    <Action title="Copy Id" icon={Icon.Clipboard} onAction={() => handleCopy("Id", user, "Id")} />
-                    <Action title="Copy Username" icon={Icon.Clipboard} onAction={() => handleCopy("username", user, "Username")} />
-                    <Action title="Copy Email" icon={Icon.Clipboard} onAction={() => handleCopy("email", user, "Email")} />
-                    <Action title="Copy Alias" icon={Icon.Clipboard} onAction={() => handleCopy("alias", user, "Alias")} />
-                  </ActionPanel.Section>
-                </ActionPanel>
-              }
-            />
-          ))}
+          {users.map((user) => {
+            // Build the login URL for metadata link.
+            const loginUrl = `${org.instanceUrl}/servlet/servlet.su?oid=${org.orgId}&suorgadminid=${user.Id}&retURL=/&targetURL=%2Fhome%2Fhome.jsp`;
+            return (
+              <List.Item
+                key={user.Id}
+                title={user.Name}
+                subtitle={user.profileName}
+                icon={Icon.Person}
+                detail={
+                  <List.Item.Detail
+                    metadata={
+                      <List.Item.Detail.Metadata>
+                        <List.Item.Detail.Metadata.Label title="Name" text={user.Name} />
+                        <List.Item.Detail.Metadata.Label title="Id" text={user.Id} />
+                        <List.Item.Detail.Metadata.Label title="Username" text={user.username} />
+                        <List.Item.Detail.Metadata.Label title="Email" text={user.email} />
+                        <List.Item.Detail.Metadata.Label title="Alias" text={user.alias} />
+                        <List.Item.Detail.Metadata.Label title="Profile" text={user.profileName} />
+                        <List.Item.Detail.Metadata.Label title="User Role" text={user.roleName} />
+                        <List.Item.Detail.Metadata.Label title="Last Login" text={formatLoginDate(user.lastLoginDate)} />
+                        <List.Item.Detail.Metadata.Link title="Login As" target={loginUrl} text="Login" />
+                      </List.Item.Detail.Metadata>
+                    }
+                  />
+                }
+                actions={
+                  <ActionPanel>
+                    <ActionPanel.Section>
+                      <Action
+                        title="Open User's Record"
+                        icon={Icon.OpenInBrowser}
+                        onAction={() => handleOpenUserRecord(user)}
+                      />
+                      <Action
+                        title="Login as User"
+                        icon={Icon.SwitchHorizontal}
+                        onAction={() => handleLoginAsUser(user)}
+                      />
+                    </ActionPanel.Section>
+                    <ActionPanel.Section>
+                      <Action title="Copy Id" icon={Icon.Clipboard} onAction={() => handleCopy("Id", user, "Id")} />
+                      <Action title="Copy Username" icon={Icon.Clipboard} onAction={() => handleCopy("username", user, "Username")} />
+                      <Action title="Copy Email" icon={Icon.Clipboard} onAction={() => handleCopy("email", user, "Email")} />
+                      <Action title="Copy Alias" icon={Icon.Clipboard} onAction={() => handleCopy("alias", user, "Alias")} />
+                      <Action
+                        title="Copy Last Login"
+                        icon={Icon.Clipboard}
+                        onAction={() => handleCopy("lastLoginDate", user, "Last Login")}
+                      />
+                      <Action
+                        title="Copy User Role"
+                        icon={Icon.Clipboard}
+                        onAction={() => handleCopy("roleName", user, "User Role")}
+                      />
+                    </ActionPanel.Section>
+                  </ActionPanel>
+                }
+              />
+            );
+          })}
         </List.Section>
         {users.length === 0 && (
           <List.EmptyView

@@ -1,5 +1,4 @@
 [
-    { "title": "Home", "value": "/" },
     { "title": "Setup Home", "value": "/lightning/setup/SetupOneHome/home/" },
     { "title": "Service Setup Assistant", "value": "/lightning/setup/ServiceHome/home" },
     { "title": "Multi-Factor Authentication Assistant", "value": "/lightning/setup/MfaAssistant/home" },
