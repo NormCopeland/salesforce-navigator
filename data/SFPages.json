@@ -38,6 +38,7 @@
     { "title": "Static Resources", "value": "/lightning/setup/StaticResources/home" },
     { "title": "Visualforce Pages", "value": "/lightning/setup/ApexPages/home" },
     { "title": "Fiscal Year", "value": "/lightning/setup/ForecastFiscalYear/home" },
-    { "title": "Platform Events", "value": "/lightning/setup/EventObjects/home" }
+    { "title": "Platform Events", "value": "/lightning/setup/EventObjects/home" },
+    { "title": "Themes and Branding", "value": "/lightning/setup/ThemingAndBranding/home" }
   ]
   
