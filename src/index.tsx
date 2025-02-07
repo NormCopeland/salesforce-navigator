@@ -9,8 +9,10 @@ import {
   useNavigation,
   Clipboard,
   showHUD,
+  getApplications,
+  open,
 } from "@raycast/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useExec, useCachedState } from "@raycast/utils";
 import PAGES from "../data/SFPages.json";
 import SalesforceSearchView from "./SalesforceSearchView";
@@ -78,7 +80,11 @@ function OrgListView() {
           }
           setOrgs(fetchedOrgs);
         } catch (err: any) {
-          await showToast({ style: Toast.Style.Failure, title: "Error parsing orgs", message: err.message });
+          await showToast({
+            style: Toast.Style.Failure,
+            title: "Error parsing orgs",
+            message: err.message,
+          });
         } finally {
           setIsLoading(false);
         }
@@ -100,53 +106,40 @@ function OrgListView() {
       <List.Section title="Connected Orgs">
         {orgs.map((org) => (
           <List.Item
-          key={org.username}
-          title={org.alias || org.username}
-          subtitle={org.instanceUrl}
-          icon={Icon.Database}
-          actions={
-            <ActionPanel>
-              <Action.Push
-                title="Select Options"
-                icon={Icon.ArrowRight}
-                target={<SelectOptionsView org={org} />}
-              />
-              <Action
-                title="Copy Org Id"
-                icon={Icon.Clipboard}
-                onAction={async () => {
-                  try {
-                    const { exec } = require("child_process");
-                    const util = require("util");
-                    const execPromise = util.promisify(exec);
-                    const targetOrg = org.alias || org.username;
-                    const { stdout } = await execPromise(`sf org display --target-org "${targetOrg}" --json`);
-                    const parsed = JSON.parse(stdout);
-                    const orgId = parsed.result.id;
-                    await Clipboard.copy(orgId);
-                    // await showToast({
-                    //                 style: Toast.Style.Success,
-                    //                 title: `Org Id Copied for ${targetOrg}!`,
-                    //                 message: `ID: ${orgId}`,
-                    //               });
-                    //               await new Promise((resolve) => setTimeout(resolve, 1000));
-
-                    // await closeMainWindow();
-                    await showHUD(`Org Id copied: ${orgId}`);
-                  } catch (error: any) {
-                    await showToast({
-                      style: Toast.Style.Failure,
-                      title: "Failed to copy Org Id",
-                      message: error.message,
-                    });
-                  }
-                }}
-              />
-              <Action title="Refresh Orgs" onAction={() => revalidate()} icon={Icon.ArrowClockwise} />
-            </ActionPanel>
-          }
-        />
-        
+            key={org.username}
+            title={org.alias || org.username}
+            subtitle={org.instanceUrl}
+            icon={Icon.Database}
+            actions={
+              <ActionPanel>
+                <Action.Push title="Select Options" icon={Icon.ArrowRight} target={<SelectOptionsView org={org} />} />
+                <Action
+                  title="Copy Org Id"
+                  icon={Icon.Clipboard}
+                  onAction={async () => {
+                    try {
+                      const { exec } = require("child_process");
+                      const util = require("util");
+                      const execPromise = util.promisify(exec);
+                      const targetOrg = org.alias || org.username;
+                      const { stdout } = await execPromise(`sf org display --target-org "${targetOrg}" --json`);
+                      const parsed = JSON.parse(stdout);
+                      const orgId = parsed.result.id;
+                      await Clipboard.copy(orgId);
+                      await showHUD(`Org Id copied: ${orgId}`);
+                    } catch (error: any) {
+                      await showToast({
+                        style: Toast.Style.Failure,
+                        title: "Failed to copy Org Id",
+                        message: error.message,
+                      });
+                    }
+                  }}
+                />
+                <Action title="Refresh Orgs" onAction={() => revalidate()} icon={Icon.ArrowClockwise} />
+              </ActionPanel>
+            }
+          />
         ))}
       </List.Section>
     </List>
@@ -164,7 +157,6 @@ function parseSobjectsOutput(output: string): SObject[] {
       id: r.durableid || r.DurableId || "",
       label: r.Label || r.label || r.MasterLabel || r.QualifiedApiName || "",
       developername: r.DeveloperName || r.developername || r.QualifiedApiName || "",
-      // Make sure to include QualifiedApiName
       QualifiedApiName: r.QualifiedApiName || r.qualifiedApiName || "",
       EditDefinitionUrl: r.EditDefinitionUrl,
     }));
@@ -175,16 +167,67 @@ function parseSobjectsOutput(output: string): SObject[] {
 }
 
 // --------------------------
+// Open in SOQLX Action (New Feature)
+// --------------------------
+function OpenInSOQLXAction({ targetOrg }: { targetOrg: string }) {
+  const openInSOQLX = useCallback(async () => {
+    try {
+      // Check if SOQLX is installed by comparing bundle IDs
+      const SOQLX_BUNDLE_ID = "com.pocketsoap.osx.SoqlXplorer";
+      const installedApps = await getApplications();
+      const soqlxInstalled = installedApps.some((app) => app.bundleId === SOQLX_BUNDLE_ID);
+
+      // Run sf org display command to get org details in JSON
+      const { exec } = require("child_process");
+      const util = require("util");
+      const execPromise = util.promisify(exec);
+      const { stdout } = await execPromise(`sf org display --target-org "${targetOrg}" --json`);
+      const result = JSON.parse(stdout)?.result;
+      if (!result) throw new Error("No org data found.");
+
+      const { instanceUrl, accessToken } = result;
+      if (!instanceUrl || !accessToken) throw new Error("Missing instance URL or session token.");
+
+      // Extract the host from instanceUrl
+      const host = new URL(instanceUrl).host;
+      // Construct the soqlx URL using the custom URL schema
+      const soqlxUrl = `soqlx://${host}/sid/${accessToken}`;
+
+      if (soqlxInstalled) {
+        await open(soqlxUrl);
+        await showHUD("Opened SoqlXplorer with your session.");
+      } else {
+        // Redirect to the SOQLX homepage if the app is not installed
+        const homepageURL = "https://superfell.com/osx/soqlx/help/";
+        await open(homepageURL);
+        await showHUD("SoqlXplorer not installed. Redirecting to help page.");
+      }
+      await closeMainWindow();
+    } catch (error: any) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Failed to open SoqlXplorer",
+        message: error.message,
+      });
+    }
+  }, [targetOrg]);
+
+  return (
+    <Action
+      icon={Icon.Link}
+      title="Open in SOQLX"
+      onAction={openInSOQLX}
+      shortcut={{ modifiers: ["cmd", "shift"], key: "x" }}
+    />
+  );
+}
+
+// --------------------------
 // Render SObject Row with Inline Actions
 // --------------------------
 function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
-  // Use the parsed label or the developername, defaulting if missing.
   const baseLabel = (sobj.label || sobj.developername || "Unknown SObject").trim();
-
-  // For keywords, we simply use the baseLabel in lowercase for now.
   const keywords = [baseLabel.toLowerCase()];
-  
-  // Build the Settings URL (leave this as is).
   let settingsUrl = "";
   if (sobj.EditDefinitionUrl) {
     let base = sobj.EditDefinitionUrl;
@@ -193,15 +236,9 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
     }
     settingsUrl = `${org.instanceUrl}/lightning/setup/ObjectManager/${base}/view`;
   } else {
-    // Fallback using developername; we leave this unchanged.
     settingsUrl = `${org.instanceUrl}/lightning/setup/ObjectManager/${sobj.developername}/Details/view`;
   }
-
-  // Build the Records (main tab) URL.
-  // Instead of deriving the API name from developername, we use QualifiedApiName directly.
   const mainTabUrl = `${org.instanceUrl}/lightning/o/${sobj.QualifiedApiName}/list?filterName=__Recent`;
-
-  // Compute relative paths (using URL API):
   const relativeSettingsPath = new URL(settingsUrl).pathname + new URL(settingsUrl).search;
   const relativeMainTabPath = new URL(mainTabUrl).pathname + new URL(mainTabUrl).search;
   const targetOrg = org.alias || org.username;
@@ -210,7 +247,7 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
     <List.Item
       key={`${sobj.id}_${index}`}
       title={baseLabel}
-      subtitle={sobj.QualifiedApiName}  // Display the QualifiedApiName for clarity.
+      subtitle={sobj.QualifiedApiName}
       icon={Icon.Table}
       keywords={keywords}
       actions={
@@ -265,45 +302,10 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
 function SelectOptionsView({ org }: { org: Org }) {
   const { popToRoot } = useNavigation();
   const targetOrg = org.alias || org.username;
-
-  // Filter state to control which sections are shown.
   const [filterCategory, setFilterCategory] = useState("all");
 
-  // Query SObjects via CLI.
-  const sObjectsQuery =
-    'SELECT Id, Label, QualifiedApiName, DeveloperName, EditDefinitionUrl FROM entitydefinition WHERE isQueryable = true AND isSearchable = true ORDER BY DeveloperName ASC';
-  const {
-    isLoading: isLoadingSobjects,
-    data: sobjectsOutput,
-    error: sobjectsError,
-    revalidate: revalidateSobjects,
-  } = useExec("sf", [
-    "data",
-    "query",
-    "--query",
-    sObjectsQuery,
-    "--use-tooling-api",
-    "--target-org",
-    targetOrg,
-    "--json",
-  ]);
-
-  // Cache sObjects using useCachedState so that they persist between runs.
-  const [sobjects, setSobjects] = useCachedState<SObject[]>(`sobjects-${targetOrg}`, []);
-  useEffect(() => {
-    if (sobjectsOutput) {
-      const records = parseSobjectsOutput(sobjectsOutput);
-      setSobjects(records);
-    }
-  }, [sobjectsOutput, setSobjects]);
-
-  // Create a dropdown filter accessory.
   const filterAccessory = (
-    <List.Dropdown
-      tooltip="Filter Sections"
-      onChange={(newValue) => setFilterCategory(newValue)}
-      value={filterCategory}
-    >
+    <List.Dropdown tooltip="Filter Sections" onChange={(newValue) => setFilterCategory(newValue)} value={filterCategory}>
       <List.Dropdown.Section title="Show">
         <List.Dropdown.Item value="all" title="All" />
         <List.Dropdown.Item value="general" title="General" />
@@ -313,8 +315,31 @@ function SelectOptionsView({ org }: { org: Org }) {
     </List.Dropdown>
   );
 
+  const {
+    isLoading: isLoadingSobjects,
+    data: sobjectsOutput,
+    error: sobjectsError,
+    revalidate: revalidateSobjects,
+  } = useExec("sf", [
+    "data",
+    "query",
+    "--query",
+    'SELECT Id, Label, QualifiedApiName, DeveloperName, EditDefinitionUrl FROM entitydefinition WHERE isQueryable = true AND isSearchable = true ORDER BY DeveloperName ASC',
+    "--use-tooling-api",
+    "--target-org",
+    targetOrg,
+    "--json",
+  ]);
+  const [sobjects, setSobjects] = useCachedState<SObject[]>(`sobjects-${targetOrg}`, []);
+  useEffect(() => {
+    if (sobjectsOutput) {
+      const records = parseSobjectsOutput(sobjectsOutput);
+      setSobjects(records);
+    }
+  }, [sobjectsOutput, setSobjects]);
+
   return (
-    <List navigationTitle={`Salesforce: ${org.alias || org.username}`} searchBarAccessory={filterAccessory}>
+    <List navigationTitle={`Salesforce: ${targetOrg}`} searchBarAccessory={filterAccessory}>
       {(filterCategory === "all" || filterCategory === "general") && (
         <List.Section>
           <List.Item
@@ -323,11 +348,7 @@ function SelectOptionsView({ org }: { org: Org }) {
             subtitle="Search Across all Objects"
             actions={
               <ActionPanel>
-                <Action.Push
-                  title="Show Global Search Results"
-                  icon={Icon.Globe}
-                  target={<GlobalSearchResultsView org={org} />}
-                />
+                <Action.Push title="Show Global Search Results" icon={Icon.Globe} target={<GlobalSearchResultsView org={org} />} />
               </ActionPanel>
             }
           />
@@ -337,7 +358,7 @@ function SelectOptionsView({ org }: { org: Org }) {
             subtitle="Enter a record ID"
             actions={
               <ActionPanel>
-                <Action.Push title="Open by ID" target={<OpenIdView org={org} />} icon={Icon.Key} />
+                <Action.Push title="Open by ID" icon={Icon.Key} target={<OpenIdView org={org} />} />
               </ActionPanel>
             }
           />
@@ -348,11 +369,10 @@ function SelectOptionsView({ org }: { org: Org }) {
             subtitle="View Salesforce Users"
             actions={
               <ActionPanel>
-                <Action.Push title="View Users" target={<SalesforceUsersView org={org} />} icon={Icon.ArrowRight} />
+                <Action.Push title="View Users" icon={Icon.ArrowRight} target={<SalesforceUsersView org={org} />} />
               </ActionPanel>
             }
           />
-          {/* New Home action */}
           <List.Item
             icon={Icon.House}
             title="Home"
@@ -380,6 +400,13 @@ function SelectOptionsView({ org }: { org: Org }) {
                 />
               </ActionPanel>
             }
+          />
+          {/* New SOQLX action */}
+          <List.Item
+            icon={Icon.Link}
+            title="Open in SoqlXplorer"
+            subtitle="Launch SoqlXplorer with your session"
+            actions={<ActionPanel><OpenInSOQLXAction targetOrg={targetOrg} /></ActionPanel>}
           />
         </List.Section>
       )}

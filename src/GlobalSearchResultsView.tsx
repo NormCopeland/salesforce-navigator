@@ -103,7 +103,8 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
   const shouldSearch = trimmedSearchText.length > 0;
   
 // Remove all non alphanumeric and non-space characters.
-    const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s]/g, "");
+const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s.@]/g, "");
+
 
 
   // Build the FIND query if search is triggered.
