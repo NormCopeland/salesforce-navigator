@@ -305,7 +305,7 @@ function SelectOptionsView({ org }: { org: Org }) {
     >
       <List.Dropdown.Section title="Show">
         <List.Dropdown.Item value="all" title="All" />
-        <List.Dropdown.Item value="options" title="Options" />
+        <List.Dropdown.Item value="general" title="General" />
         <List.Dropdown.Item value="sobjects" title="SObjects" />
         <List.Dropdown.Item value="settings" title="Settings Pages" />
       </List.Dropdown.Section>
@@ -315,31 +315,14 @@ function SelectOptionsView({ org }: { org: Org }) {
   return (
     <List navigationTitle={`Salesforce: ${org.alias || org.username}`} searchBarAccessory={filterAccessory}>
 
-{/* { (filterCategory === "all" || filterCategory === "global") && (
-  <List.Section title="Global Search">
-    <List.Item
-      icon={Icon.Globe}
-      title="Global Search"
-      subtitle="Search across Accounts and Contacts"
-      actions={
-        <ActionPanel>
-          <Action.Push
-            title="Show Global Search Results"
-            icon={Icon.Globe}
-            target={<GlobalSearchResultsView org={org} />}
-          />
-        </ActionPanel>
-      }
-    />
-  </List.Section>
-)} */}
 
-      {(filterCategory === "all" || filterCategory === "options") && (
-        <List.Section title="Options">
+
+      {(filterCategory === "all" || filterCategory === "general") && (
+        <List.Section>
           <List.Item
       icon={Icon.Globe}
       title="Global Search"
-      subtitle="Search across Accounts and Contacts"
+      subtitle="Search Across all Objects"
       actions={
         <ActionPanel>
           <Action.Push

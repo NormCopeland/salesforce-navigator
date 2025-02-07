@@ -102,10 +102,14 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
   const trimmedSearchText = searchText.trim();
   const shouldSearch = trimmedSearchText.length > 0;
   
+// Remove all non alphanumeric and non-space characters.
+    const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s]/g, "");
+
+
   // Build the FIND query if search is triggered.
   const findQuery =
     shouldSearch && returningClause
-      ? `FIND {${trimmedSearchText}} IN ALL FIELDS RETURNING ${returningClause} LIMIT ${limitValue}`
+      ? `FIND {${sanitizedSearchText}} IN ALL FIELDS RETURNING ${returningClause} LIMIT ${limitValue}`
       : "";
 
   // If no search term is provided, use a safe echo command.
