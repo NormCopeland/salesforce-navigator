@@ -215,7 +215,6 @@ const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s.@]/g, "");
             title="Search in Browser"
             icon={Icon.Globe}
             onAction={handleSearchInBrowser}
-            shortcut={{ modifiers: ["cmd"], key: "enter" }}
           />
           <Action title="Reload" icon={Icon.ArrowClockwise} onAction={() => revalidate()} />
         </ActionPanel>
@@ -240,7 +239,6 @@ const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s.@]/g, "");
                   title="Search in Browser"
                   icon={Icon.Globe}
                   onAction={handleSearchInBrowser}
-                  shortcut={{ modifiers: ["cmd"], key: "enter" }}
                 />
               </ActionPanel>
             }
