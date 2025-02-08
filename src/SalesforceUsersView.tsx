@@ -7,6 +7,7 @@ import {
     Toast,
     Clipboard,
     open,
+    showHUD,
     getPreferenceValues
   } from "@raycast/api";
   import { useState, useEffect, useCallback } from "react";
