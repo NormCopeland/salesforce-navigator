@@ -2,16 +2,16 @@
   "author": "NormC",
   "commands": [
     {
-      "title": "SF Navigator",
+      "title": "List Orgs",
       "name": "index",
-      "description": "",
+      "description": "List all connected Salesforce orgs",
       "mode": "view",
       "icon": "extension-icon.png"
     },
     {
       "title": "Copy SF ID",
       "name": "copy-sf-id",
-      "description": "Fetches the URL from your frontmost browser, extracts a Salesforce ID and copies it to the clipboard",
+      "description": "Lists all open browser tabs that contain a Salesforce ID. Select one and it will be copied to the clipboard",
       "mode": "view",
       "icon": "extension-icon-sf-copy.png"
     }
