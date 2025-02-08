@@ -341,7 +341,7 @@ function SelectOptionsView({ org }: { org: Org }) {
   return (
     <List navigationTitle={`Salesforce: ${targetOrg}`} searchBarAccessory={filterAccessory}>
       {(filterCategory === "all" || filterCategory === "general") && (
-        <List.Section>
+        <List.Section title="General Options">
           <List.Item
             icon={Icon.Globe}
             title="Global Search"
@@ -429,7 +429,6 @@ function SelectOptionsView({ org }: { org: Org }) {
               </ActionPanel>
             }
           />
-          {/* New SOQLX action */}
           <List.Item
             icon={Icon.List}
             title="Open in SoqlXplorer"

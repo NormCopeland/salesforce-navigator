@@ -44,7 +44,7 @@ export default function OpenIdView({ org }: { org: Org }) {
       const execPromise = util.promisify(exec);
       await execPromise(`sf org open -p "${relativePath}" --target-org "${targetOrg}"`);
       pop();
-    } catch (error: any) {
+    } catch (error: unknown) {
       await showToast({
         style: Toast.Style.Failure,
         title: "Failed to open record",
@@ -86,15 +86,13 @@ export default function OpenIdView({ org }: { org: Org }) {
         <ActionPanel>
           {/* This Action.SubmitForm is used to open a record through Salesforce CLI */}
           <Action.SubmitForm title="Open Record" onSubmit={handleOpenRecord} icon={Icon.Link} />
-          {/* Additional action for global search in the browser */}
-          <Action title="Search in Browser" icon={Icon.MagnifyingGlass} onAction={handleSearchInBrowser} />
         </ActionPanel>
       }
     >
       <Form.TextField
         id="recordId"
-        title="Salesforce Record ID or Search Term"
-        placeholder="Enter a record ID or search term"
+        title="Salesforce Record ID"
+        placeholder="Enter a record ID"
         value={recordId}
         onChange={setRecordId}
       />
