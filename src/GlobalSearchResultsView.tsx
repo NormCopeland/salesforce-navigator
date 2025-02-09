@@ -45,6 +45,7 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
   const [searchText, setSearchText] = useState("");
   const [records, setRecords] = useState<SearchRecord[]>([]);
   const [searchableObjects, setSearchableObjects] = useState<SearchableObject[]>([]);
+  const [selectedType, setSelectedType] = useState("all");
 
   // ------------------------------
   // Step 1: Retrieve Searchable Objects from Salesforce
@@ -144,6 +145,9 @@ const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s.@]/g, "");
     parseSearchResults();
   }, [data]);
 
+  // Compute filtered records based on selected sObject type
+  const filteredRecords = selectedType === "all" ? records : records.filter(record => record.attributes.type === selectedType);
+
   // ------------------------------
   // Step 4: Action Handlers
   // ------------------------------
@@ -208,6 +212,14 @@ const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s.@]/g, "");
       onSearchTextChange={setSearchText}
       throttle
       navigationTitle="Salesforce Global Search"
+      searchBarAccessory={
+        <List.Dropdown tooltip="Filter by SObject" onChange={setSelectedType} value={selectedType}>
+          <List.Dropdown.Item title="All" value="all" />
+          {Array.from(new Set(records.map(r => r.attributes.type))).sort().map((type) => (
+            <List.Dropdown.Item key={type} title={type} value={type} />
+          ))}
+        </List.Dropdown>
+      }
       actions={
         <ActionPanel>
           {/* Always available global search action */}
@@ -221,7 +233,7 @@ const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s.@]/g, "");
       }
     >
       <List.Section title="Search Results">
-        {records.map((record) => (
+        {filteredRecords.map((record) => (
           <List.Item
             key={record.Id}
             title={record.Name}
