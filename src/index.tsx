@@ -6,7 +6,6 @@ import {
   showToast,
   Toast,
   closeMainWindow,
-  useNavigation,
   Clipboard,
   showHUD,
   getApplications,
@@ -43,7 +42,6 @@ type SObject = {
 // OrgListView Component
 // --------------------------
 function OrgListView() {
-  const { push } = useNavigation();
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -290,7 +288,6 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
 // SelectOptionsView Component
 // --------------------------
 function SelectOptionsView({ org }: { org: Org }) {
-  const { popToRoot } = useNavigation();
   const targetOrg = org.alias || org.username;
   const [filterCategory, setFilterCategory] = useState("all");
 
