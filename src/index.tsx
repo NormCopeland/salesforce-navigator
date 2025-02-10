@@ -137,7 +137,7 @@ function OrgListView() {
             key={org.username}
             title={org.alias || org.username}
             subtitle={org.instanceUrl}
-            icon={Icon.StackedBars4}
+            icon={Icon.Box}
             actions={
               <ActionPanel>
                 <Action.Push title="Select Options" icon={Icon.ArrowRight} target={<SelectOptionsView org={org} />} />
