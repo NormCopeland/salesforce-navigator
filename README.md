@@ -56,9 +56,11 @@ Salesforce Navigator is a Raycast extension that brings your Salesforce workflow
 
 2. **Install Dependencies & Start Development:**  
    Open your terminal in the extension’s directory and run:
+
    ```bash
    npm install && npm run dev
    ```
+
    This command installs all necessary dependencies and starts the extension in development mode. The extension then becomes available in your Raycast root search.
 
 3. **Run & Test:**  
@@ -88,12 +90,6 @@ Salesforce Navigator is a Raycast extension that brings your Salesforce workflow
 
 - **Search Result Limit:**  
   Set your preferred maximum number of search results through the Raycast extension preferences. This is configured in the extension’s settings under "Search Result Limit" (default is 50).
-
----
-
-## License
-
-Salesforce Navigator is open source and available under the [MIT License](LICENSE).
 
 ---
 
