@@ -60,9 +60,9 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
           const parsed = JSON.parse(searchableData);
           const objs: SearchableObject[] = parsed.result.records || [];
           const filteredObjs = objs.filter(
-            (obj) => !["AssetRelationship", "AssignmentRule"].includes(obj.QualifiedApiName)
+            (obj) => !["AssetRelationship", "AssignmentRule"].includes(obj.QualifiedApiName),
           );
-          const customObjects = filteredObjs.filter(obj => obj.DurableId !== obj.QualifiedApiName);
+          const customObjects = filteredObjs.filter((obj) => obj.DurableId !== obj.QualifiedApiName);
           setSearchableObjects(customObjects);
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
@@ -84,12 +84,11 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
     "Opportunity(Id,Name)",
     "Campaign(Id,Name)",
     "Case(Id,CaseNumber)",
-    "Product2(Id,Name)"
+    "Product2(Id,Name)",
   ];
 
-  const customFragments = searchableObjects.length > 0
-    ? searchableObjects.map(obj => `${obj.QualifiedApiName}(Id,Name)`)
-    : [];
+  const customFragments =
+    searchableObjects.length > 0 ? searchableObjects.map((obj) => `${obj.QualifiedApiName}(Id,Name)`) : [];
 
   const returningClause = standardFragments.concat(customFragments).join(", ");
   const trimmedSearchText = searchText.trim();
@@ -130,7 +129,8 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
     parseSearchResults();
   }, [data]);
 
-  const filteredRecords = selectedType === "all" ? records : records.filter(record => record.attributes.type === selectedType);
+  const filteredRecords =
+    selectedType === "all" ? records : records.filter((record) => record.attributes.type === selectedType);
 
   // Step 4: Action Handlers
   async function handleOpenRecord(record: SearchRecord) {
@@ -152,7 +152,7 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
     if (!trimmedSearchText) {
       await showToast({
         style: Toast.Style.Failure,
-        title: "Please enter a search term"
+        title: "Please enter a search term",
       });
       return;
     }
@@ -161,9 +161,9 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
       attributes: {
         term: trimmedSearchText,
         scopeMap: { type: "TOP_RESULTS" },
-        groupId: "DEFAULT"
+        groupId: "DEFAULT",
       },
-      state: {}
+      state: {},
     };
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64");
     const fullUrl = `${org.instanceUrl}/one/one.app#${encodedPayload}`;
@@ -190,14 +190,16 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
       searchBarAccessory={
         <List.Dropdown tooltip="Filter By SObject" onChange={setSelectedType} value={selectedType}>
           <List.Dropdown.Item title="All" value="all" />
-          {Array.from(new Set(records.map(r => r.attributes.type))).sort().map((type) => (
-            <List.Dropdown.Item key={type} title={type} value={type} />
-          ))}
+          {Array.from(new Set(records.map((r) => r.attributes.type)))
+            .sort()
+            .map((type) => (
+              <List.Dropdown.Item key={type} title={type} value={type} />
+            ))}
         </List.Dropdown>
       }
       actions={
         <ActionPanel>
-          <Action title="Search In Browser" icon={Icon.Globe} onAction={handleSearchInBrowser} />
+          <Action title="Search in Browser" icon={Icon.Globe} onAction={handleSearchInBrowser} />
           <Action title="Reload" icon={Icon.ArrowClockwise} onAction={() => revalidate()} />
         </ActionPanel>
       }
@@ -211,8 +213,12 @@ export default function GlobalSearchResultsView({ org }: { org: Org }) {
             icon={Icon.Document}
             actions={
               <ActionPanel>
-                <Action title={`Open ${record.attributes.type} Record`} icon={Icon.OpenInBrowser} onAction={() => handleOpenRecord(record)} />
-                <Action title="Search In Browser" icon={Icon.Globe} onAction={handleSearchInBrowser} />
+                <Action
+                  title={`Open ${record.attributes.type} Record`}
+                  icon={Icon.OpenInBrowser}
+                  onAction={() => handleOpenRecord(record)}
+                />
+                <Action title="Search in Browser" icon={Icon.Globe} onAction={handleSearchInBrowser} />
               </ActionPanel>
             }
           />

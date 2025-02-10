@@ -15,7 +15,6 @@ import {
 import { useState, useEffect, useCallback } from "react";
 import { useExec, useCachedState } from "@raycast/utils";
 import PAGES from "../data/SFPages.json";
-import SalesforceSearchView from "./SalesforceSearchView";
 import OpenIdView from "./OpenIdView";
 import GlobalSearchResultsView from "./GlobalSearchResultsView";
 import SalesforceUsersView from "./SalesforceUsersView";
@@ -48,11 +47,7 @@ function OrgListView() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const { isLoading: loadingOrgs, data, revalidate } = useExec("sf", [
-    "org",
-    "list",
-    "--json",
-  ]);
+  const { isLoading: loadingOrgs, data, revalidate } = useExec("sf", ["org", "list", "--json"]);
 
   useEffect(() => {
     async function parseOrgs() {
@@ -176,11 +171,36 @@ function OpenInSOQLXAction({ targetOrg }: { targetOrg: string }) {
     try {
       const SOQLX_BUNDLE_ID = "com.pocketsoap.osx.SoqlXplorer";
       const installedApps = await getApplications();
-      const soqlxInstalled = installedApps.some((app) => app.bundleId === SOQLX_BUNDLE_ID);
+      const soqlxApp = installedApps.find((app) => app.bundleId === SOQLX_BUNDLE_ID);
+      if (!soqlxApp) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "SoqlXplorer not installed",
+          message: "Please install SoqlXplorer to use this feature.",
+        });
+        return;
+      }
+
       const execPromise = promisify(exec);
       const { stdout } = await execPromise(`sf org display --target-org "${targetOrg}" --json`);
       const result = JSON.parse(stdout)?.result;
       if (!result) throw new Error("No org data found.");
+
+      // Ensure the instanceUrl exists and extract the host name
+      if (!result.instanceUrl) throw new Error("No instance URL found for org.");
+      const urlObj = new URL(result.instanceUrl);
+      const serverHost = urlObj.host;
+
+      // We need a session ID for SoqlXplorer.
+      // Assuming the CLI returns it as accessToken, adjust the property if needed.
+      const sessionId = result.accessToken;
+      if (!sessionId) throw new Error("No session ID found in org data.");
+
+      // Construct the SoqlX URL with the required format.
+      const soqlxUrl = `soqlx://${serverHost}/sid/${sessionId}`;
+
+      // Open the URL so that SoqlXplorer launches with your session.
+      await open(soqlxUrl);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       await showToast({
@@ -191,7 +211,7 @@ function OpenInSOQLXAction({ targetOrg }: { targetOrg: string }) {
     }
   }, [targetOrg]);
 
-  return <Action title="Open In SOQLX" icon={Icon.List} onAction={openInSOQLX} />;
+  return <Action title="Open in Soqlx" icon={Icon.List} onAction={openInSOQLX} />;
 }
 
 // --------------------------
@@ -275,7 +295,11 @@ function SelectOptionsView({ org }: { org: Org }) {
   const [filterCategory, setFilterCategory] = useState("all");
 
   const filterAccessory = (
-    <List.Dropdown tooltip="Filter Sections" onChange={(newValue) => setFilterCategory(newValue)} value={filterCategory}>
+    <List.Dropdown
+      tooltip="Filter Sections"
+      onChange={(newValue) => setFilterCategory(newValue)}
+      value={filterCategory}
+    >
       <List.Dropdown.Section title="Show">
         <List.Dropdown.Item value="all" title="All" />
         <List.Dropdown.Item value="general" title="General" />
@@ -294,7 +318,7 @@ function SelectOptionsView({ org }: { org: Org }) {
     "data",
     "query",
     "--query",
-    'SELECT Id, Label, QualifiedApiName, DeveloperName, EditDefinitionUrl FROM entitydefinition WHERE isQueryable = true AND isSearchable = true ORDER BY DeveloperName ASC',
+    "SELECT Id, Label, QualifiedApiName, DeveloperName, EditDefinitionUrl FROM entitydefinition WHERE isQueryable = true AND isSearchable = true ORDER BY DeveloperName ASC",
     "--use-tooling-api",
     "--target-org",
     targetOrg,
@@ -318,7 +342,11 @@ function SelectOptionsView({ org }: { org: Org }) {
             subtitle="Search Across All Objects"
             actions={
               <ActionPanel>
-                <Action.Push title="Show Global Search Results" icon={Icon.Globe} target={<GlobalSearchResultsView org={org} />} />
+                <Action.Push
+                  title="Show Global Search Results"
+                  icon={Icon.Globe}
+                  target={<GlobalSearchResultsView org={org} />}
+                />
               </ActionPanel>
             }
           />
@@ -328,7 +356,7 @@ function SelectOptionsView({ org }: { org: Org }) {
             subtitle="Enter a Record ID"
             actions={
               <ActionPanel>
-                <Action.Push title="Open By ID" icon={Icon.Key} target={<OpenIdView org={org} />} />
+                <Action.Push title="Open by Id" icon={Icon.Key} target={<OpenIdView org={org} />} />
               </ActionPanel>
             }
           />
@@ -382,7 +410,9 @@ function SelectOptionsView({ org }: { org: Org }) {
                   onAction={async () => {
                     try {
                       const execPromise = promisify(exec);
-                      await execPromise(`sf org open -p "/_ui/common/apex/debug/ApexCSIPage" --target-org "${targetOrg}"`);
+                      await execPromise(
+                        `sf org open -p "/_ui/common/apex/debug/ApexCSIPage" --target-org "${targetOrg}"`,
+                      );
                       await closeMainWindow();
                     } catch (error: unknown) {
                       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -444,7 +474,9 @@ function SelectOptionsView({ org }: { org: Org }) {
       {(filterCategory === "all" || filterCategory === "sobjects") && (
         <List.Section
           title="SObjects"
-          accessory={<Action title="Refresh SObjects" icon={Icon.ArrowClockwise} onAction={() => revalidateSobjects()} />}
+          accessory={
+            <Action title="Refresh Sobjects" icon={Icon.ArrowClockwise} onAction={() => revalidateSobjects()} />
+          }
         >
           {isLoadingSobjects ? (
             <List.Item title="Loading SObjects…" icon={Icon.CircleProgress} />

@@ -1,13 +1,4 @@
-import {
-  List,
-  ActionPanel,
-  Action,
-  Icon,
-  open,
-  showToast,
-  Toast,
-  getPreferenceValues,
-} from "@raycast/api";
+import { List, ActionPanel, Action, Icon, showToast, Toast, getPreferenceValues } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -26,7 +17,7 @@ type SObject = {
 };
 
 type RecordResult = {
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 // Preferences interface for additional search fields.
@@ -35,7 +26,11 @@ interface Preferences {
 }
 
 function getObjectApiName(sobject: SObject): string {
-  if (sobject.DeveloperName && sobject.DeveloperName.trim() !== "" && sobject.DeveloperName.trim().toLowerCase() !== "null") {
+  if (
+    sobject.DeveloperName &&
+    sobject.DeveloperName.trim() !== "" &&
+    sobject.DeveloperName.trim().toLowerCase() !== "null"
+  ) {
     let devName = sobject.DeveloperName.trim();
     if (devName.toLowerCase() === "global") return "global";
     if (devName.includes("_") && !devName.endsWith("__c")) {
@@ -109,9 +104,7 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
     setIsLoading(true);
 
     // Build the condition string for each field using the search text.
-    const conditions = conditionFields
-      .map((field) => `${field} LIKE '%${searchText}%'`)
-      .join(" OR ");
+    const conditions = conditionFields.map((field) => `${field} LIKE '%${searchText}%'`).join(" OR ");
     const fieldCondition = conditions ? `WHERE (${conditions})` : "";
 
     // Build the SOQL query.
@@ -149,12 +142,12 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
     };
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64");
     const fullUrl = `${org.instanceUrl}/one/one.app#${encodedPayload}`;
-  
+
     // Use the URL API to extract the relative portion (pathname + search + hash)
     const urlObj = new URL(fullUrl);
     const relativeGlobalPath = urlObj.pathname + urlObj.search + urlObj.hash;
     const targetOrg = org.alias || org.username;
-  
+
     try {
       const execPromise = promisify(exec);
       await execPromise(`sf org open -p "${relativeGlobalPath}" --target-org "${targetOrg}"`);
@@ -166,13 +159,6 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
         message: errorMessage,
       });
     }
-  }
-  
-
-  // For non-global searches, handle record opening.
-  function handleRecordAction(record: RecordResult) {
-    const recordUrl = `${org.instanceUrl}/lightning/r/${apiNameValue}/${record.Id}/view`;
-    open(recordUrl);
   }
 
   // If global search is active, display a simple list to trigger it.
@@ -190,11 +176,7 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
             title={`Search Salesforce for "${searchText}"`}
             actions={
               <ActionPanel>
-                <Action
-                  title="Search In Browser"
-                  icon={Icon.Globe}
-                  onAction={handleGlobalSearch}
-                />
+                <Action title="Search in Browser" icon={Icon.Globe} onAction={handleGlobalSearch} />
               </ActionPanel>
             }
           />
@@ -204,7 +186,7 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
       </List>
     );
   }
-  
+
   return (
     <List
       isLoading={isLoading}
@@ -227,7 +209,13 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
                     <List.Item.Detail.Metadata.Label
                       key={field}
                       title={field}
-                      text={field.toLowerCase() === "id" ? record.Id : record[field] ? record[field].toString() : "Not available"}
+                      text={
+                        field.toLowerCase() === "id"
+                          ? record.Id
+                          : record[field]
+                            ? record[field].toString()
+                            : "Not available"
+                      }
                     />
                   ))}
                 </List.Item.Detail.Metadata>
@@ -243,7 +231,9 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
                   try {
                     const relativeRecordPath = `/lightning/r/${apiNameValue}/${record.Id}/view`;
                     const execPromise = promisify(exec);
-                    await execPromise(`sf org open -p "${relativeRecordPath}" --target-org "${org.alias || org.username}"`);
+                    await execPromise(
+                      `sf org open -p "${relativeRecordPath}" --target-org "${org.alias || org.username}"`,
+                    );
                   } catch (error: unknown) {
                     const errorMessage = error instanceof Error ? error.message : String(error);
                     await showToast({
@@ -254,7 +244,7 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
                   }
                 }}
               />
-              <Action.CopyToClipboard title="Copy To Clipboard" content={record.Id} />
+              <Action.CopyToClipboard title="Copy to Clipboard" content={record.Id} />
             </ActionPanel>
           }
         />
