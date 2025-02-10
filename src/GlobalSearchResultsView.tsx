@@ -213,7 +213,7 @@ const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s.@]/g, "");
       throttle
       navigationTitle="Salesforce Global Search"
       searchBarAccessory={
-        <List.Dropdown tooltip="Filter by SObject" onChange={setSelectedType} value={selectedType}>
+        <List.Dropdown tooltip="Filter By SObject" onChange={setSelectedType} value={selectedType}>
           <List.Dropdown.Item title="All" value="all" />
           {Array.from(new Set(records.map(r => r.attributes.type))).sort().map((type) => (
             <List.Dropdown.Item key={type} title={type} value={type} />
@@ -222,9 +222,8 @@ const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s.@]/g, "");
       }
       actions={
         <ActionPanel>
-          {/* Always available global search action */}
           <Action
-            title="Search in Browser"
+            title="Search In Browser"
             icon={Icon.Globe}
             onAction={handleSearchInBrowser}
           />
@@ -248,7 +247,7 @@ const sanitizedSearchText = trimmedSearchText.replace(/[^\w\s.@]/g, "");
                   onAction={() => handleOpenRecord(record)}
                 />
                 <Action
-                  title="Search in Browser"
+                  title="Search In Browser"
                   icon={Icon.Globe}
                   onAction={handleSearchInBrowser}
                 />

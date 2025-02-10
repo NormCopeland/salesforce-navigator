@@ -114,7 +114,7 @@ function OrgListView() {
               <ActionPanel>
                 <Action.Push title="Select Options" icon={Icon.ArrowRight} target={<SelectOptionsView org={org} />} />
                 <Action
-                  title="Copy Org Id"
+                  title="Copy Org ID"
                   icon={Icon.Clipboard}
                   onAction={async () => {
                     try {
@@ -126,11 +126,11 @@ function OrgListView() {
                       const parsed = JSON.parse(stdout);
                       const orgId = parsed.result.id;
                       await Clipboard.copy(orgId);
-                      await showHUD(`Org Id copied: ${orgId}`);
+                      await showHUD(`Org ID Copied: ${orgId}`);
                     } catch (error: any) {
                       await showToast({
                         style: Toast.Style.Failure,
-                        title: "Failed to copy Org Id",
+                        title: "Failed to copy Org ID",
                         message: error.message,
                       });
                     }
@@ -215,7 +215,7 @@ function OpenInSOQLXAction({ targetOrg }: { targetOrg: string }) {
   return (
     <Action
       icon={Icon.Link}
-      title="Open in SOQLX"
+      title="Open In SOQLX"
       onAction={openInSOQLX}
       shortcut={{ modifiers: ["cmd", "shift"], key: "x" }}
     />
@@ -345,7 +345,7 @@ function SelectOptionsView({ org }: { org: Org }) {
           <List.Item
             icon={Icon.Globe}
             title="Global Search"
-            subtitle="Search Across all Objects"
+            subtitle="Search Across All Objects"
             actions={
               <ActionPanel>
                 <Action.Push title="Show Global Search Results" icon={Icon.Globe} target={<GlobalSearchResultsView org={org} />} />
@@ -354,11 +354,11 @@ function SelectOptionsView({ org }: { org: Org }) {
           />
           <List.Item
             icon={Icon.Key}
-            title="Open by ID"
-            subtitle="Enter a record ID"
+            title="Open By ID"
+            subtitle="Enter a Record ID"
             actions={
               <ActionPanel>
-                <Action.Push title="Open by ID" icon={Icon.Key} target={<OpenIdView org={org} />} />
+                <Action.Push title="Open By ID" icon={Icon.Key} target={<OpenIdView org={org} />} />
               </ActionPanel>
             }
           />
@@ -420,7 +420,7 @@ function SelectOptionsView({ org }: { org: Org }) {
                     } catch (error: any) {
                       await showToast({
                         style: Toast.Style.Failure,
-                        title: "Failed to open Home Page",
+                        title: "Failed to open Developer Console",
                         message: error.message,
                       });
                     }
@@ -431,9 +431,13 @@ function SelectOptionsView({ org }: { org: Org }) {
           />
           <List.Item
             icon={Icon.List}
-            title="Open in SoqlXplorer"
-            subtitle="Launch SoqlXplorer with your session"
-            actions={<ActionPanel><OpenInSOQLXAction targetOrg={targetOrg} /></ActionPanel>}
+            title="Open In SOQLX"
+            subtitle="Launch SOQLX with Your Session"
+            actions={
+              <ActionPanel>
+                <OpenInSOQLXAction targetOrg={targetOrg} />
+              </ActionPanel>
+            }
           />
         </List.Section>
       )}

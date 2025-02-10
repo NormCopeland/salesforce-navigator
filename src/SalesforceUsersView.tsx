@@ -246,7 +246,7 @@ import {
                     metadata={
                       <List.Item.Detail.Metadata>
                         <List.Item.Detail.Metadata.Label title="Name" text={user.Name} />
-                        <List.Item.Detail.Metadata.Label title="Id" text={user.Id} />
+                        <List.Item.Detail.Metadata.Label title="ID" text={user.Id} />
                         <List.Item.Detail.Metadata.Label title="Username" text={user.username} />
                         <List.Item.Detail.Metadata.Label title="Email" text={user.email} />
                         <List.Item.Detail.Metadata.Label title="Alias" text={user.alias} />
@@ -262,7 +262,7 @@ import {
                   <ActionPanel>
                     <ActionPanel.Section>
                       <Action
-                        title="Open User's Record"
+                        title="Open User Record"
                         icon={Icon.OpenInBrowser}
                         onAction={() => handleOpenUserRecord(user)}
                       />
@@ -273,20 +273,12 @@ import {
                       />
                     </ActionPanel.Section>
                     <ActionPanel.Section>
-                      <Action title="Copy Id" icon={Icon.Clipboard} onAction={() => handleCopy("Id", user, "Id")} />
-                      <Action title="Copy Username" icon={Icon.Clipboard} onAction={() => handleCopy("username", user, "Username")} />
-                      <Action title="Copy Email" icon={Icon.Clipboard} onAction={() => handleCopy("email", user, "Email")} />
-                      <Action title="Copy Alias" icon={Icon.Clipboard} onAction={() => handleCopy("alias", user, "Alias")} />
-                      <Action
-                        title="Copy Last Login"
-                        icon={Icon.Clipboard}
-                        onAction={() => handleCopy("lastLoginDate", user, "Last Login")}
-                      />
-                      <Action
-                        title="Copy User Role"
-                        icon={Icon.Clipboard}
-                        onAction={() => handleCopy("roleName", user, "User Role")}
-                      />
+                      <Action title="Copy Id To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("Id", user, "ID")} />
+                      <Action title="Copy Username To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("username", user, "Username")} />
+                      <Action title="Copy Email To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("email", user, "Email")} />
+                      <Action title="Copy Alias To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("alias", user, "Alias")} />
+                      <Action title="Copy Last Login To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("lastLoginDate", user, "Last Login")} />
+                      <Action title="Copy User Role To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("roleName", user, "User Role")} />
                     </ActionPanel.Section>
                   </ActionPanel>
                 }
