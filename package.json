@@ -9,7 +9,7 @@
       "icon": "extension-icon.png"
     },
     {
-      "title": "Copy Sf Id",
+      "title": "Copy Salesforce Id from Browser",
       "name": "copy-sf-id",
       "description": "Lists all open browser tabs that contain a Salesforce ID. Select one and it will be copied to the clipboard",
       "mode": "view",
