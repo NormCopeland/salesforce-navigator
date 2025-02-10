@@ -38,6 +38,38 @@ type SObject = {
   QualifiedApiName: string;
 };
 
+// New interfaces to replace "any"
+
+// For raw org objects returned by the CLI
+interface RawOrg {
+  username: string;
+  alias?: string;
+  orgId: string;
+  instanceUrl: string;
+}
+
+// To describe the JSON structure of the org list response
+interface OrgListResult {
+  result?: {
+    nonScratchOrgs?: RawOrg[];
+    scratchOrgs?: RawOrg[];
+  };
+}
+
+// For raw SObject objects returned by the CLI
+interface RawSObject {
+  durableid?: string;
+  DurableId?: string;
+  Label?: string;
+  label?: string;
+  MasterLabel?: string;
+  QualifiedApiName?: string;
+  DeveloperName?: string;
+  developername?: string;
+  qualifiedApiName?: string;
+  EditDefinitionUrl?: string;
+}
+
 // --------------------------
 // OrgListView Component
 // --------------------------
@@ -51,10 +83,10 @@ function OrgListView() {
     async function parseOrgs() {
       if (data) {
         try {
-          const parsed = JSON.parse(data);
+          const parsed = JSON.parse(data) as OrgListResult;
           const fetchedOrgs: Org[] = [];
           if (parsed.result?.nonScratchOrgs) {
-            parsed.result.nonScratchOrgs.forEach((item: any) => {
+            parsed.result.nonScratchOrgs.forEach((item: RawOrg) => {
               fetchedOrgs.push({
                 username: item.username,
                 alias: item.alias,
@@ -64,7 +96,7 @@ function OrgListView() {
             });
           }
           if (parsed.result?.scratchOrgs) {
-            parsed.result.scratchOrgs.forEach((item: any) => {
+            parsed.result.scratchOrgs.forEach((item: RawOrg) => {
               fetchedOrgs.push({
                 username: item.username,
                 alias: item.alias,
@@ -148,7 +180,7 @@ function parseSobjectsOutput(output: string): SObject[] {
   try {
     const parsed = JSON.parse(output);
     const rawRecords = parsed.result?.records || parsed.result || [];
-    return rawRecords.map((r: any) => ({
+    return rawRecords.map((r: RawSObject) => ({
       id: r.durableid || r.DurableId || "",
       label: r.Label || r.label || r.MasterLabel || r.QualifiedApiName || "",
       developername: r.DeveloperName || r.developername || r.QualifiedApiName || "",
