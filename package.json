@@ -24,9 +24,9 @@
     {
     "name": "searchLimit", 
       "type": "textfield",
-      "title": "Search Result Limit",
-      "description": "The maximum number of search results returned in a search query.",
-      "default": "50"
+      "title": "Global Search Result Limit",
+      "description": "The maximum number of search results returned in a global search query.",
+      "default": "100"
     }
   ],  
   "devDependencies": {

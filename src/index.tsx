@@ -265,14 +265,14 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
               } catch (error: any) {
                 await showToast({
                   style: Toast.Style.Failure,
-                  title: "Failed to open Object Settings",
+                  title: "Failed to Open Object Settings",
                   message: error.message,
                 });
               }
             }}
           />
           <Action
-            title="Open Records Page"
+            title="Open Object Tab"
             icon={Icon.Globe}
             onAction={async () => {
               try {
@@ -284,7 +284,7 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
               } catch (error: any) {
                 await showToast({
                   style: Toast.Style.Failure,
-                  title: "Failed to open Records Page",
+                  title: "Failed to Open Object Tab",
                   message: error.message,
                 });
               }

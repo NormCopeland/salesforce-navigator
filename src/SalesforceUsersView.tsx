@@ -124,7 +124,6 @@ import {
                 };
               });
               // sort the recs in descending order by lastLoginDate – most recent first.
-              // If lastLoginDate is empty, new Date("") returns an Invalid Date (NaN), so be cautious.
               recs.sort((a, b) => {
                 const dateA = new Date(a.lastLoginDate).getTime();
                 const dateB = new Date(b.lastLoginDate).getTime();
@@ -273,12 +272,12 @@ import {
                       />
                     </ActionPanel.Section>
                     <ActionPanel.Section>
-                      <Action title="Copy Id To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("Id", user, "ID")} />
-                      <Action title="Copy Username To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("username", user, "Username")} />
-                      <Action title="Copy Email To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("email", user, "Email")} />
-                      <Action title="Copy Alias To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("alias", user, "Alias")} />
-                      <Action title="Copy Last Login To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("lastLoginDate", user, "Last Login")} />
-                      <Action title="Copy User Role To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("roleName", user, "User Role")} />
+                      <Action title="Copy Id to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("Id", user, "ID")} />
+                      <Action title="Copy Username to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("username", user, "Username")} />
+                      <Action title="Copy Email to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("email", user, "Email")} />
+                      <Action title="Copy Alias to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("alias", user, "Alias")} />
+                      <Action title="Copy Last Login to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("lastLoginDate", user, "Last Login")} />
+                      <Action title="Copy User Role to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("roleName", user, "User Role")} />
                     </ActionPanel.Section>
                   </ActionPanel>
                 }
