@@ -17,7 +17,7 @@
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.90.0",
+    "@raycast/api": "^1.91.1",
     "@raycast/utils": "^1.17.0"
   },
   "preferences": [
@@ -47,8 +47,9 @@
     "lint": "ray lint",
     "build": "ray build"
   },
-  "description": "",
+  "description": "Salesforce Navigator lists your connected Salesforce orgs and makes it easy to copy Salesforce IDs from open browser tabs.",
   "license": "MIT",
   "name": "salesforce-navigator",
+  "categories": ["Developer Tools", "Productivity"],
   "icon": "extension-icon.png"
 }

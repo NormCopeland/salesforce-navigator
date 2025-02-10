@@ -6,7 +6,7 @@ Salesforce Navigator is a Raycast extension that brings your Salesforce workflow
 
 ## Features
 
-### 1. Connected Orgs (Index Command)
+### 1. List Connected Orgs
 
 - **List Connected Orgs:**  
   The extension retrieves a list of all connected Salesforce orgs using your local Salesforce CLI. Both scratch and non‑scratch orgs are displayed in a dedicated list directly within Raycast.
