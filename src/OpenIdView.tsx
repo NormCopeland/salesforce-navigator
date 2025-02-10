@@ -10,6 +10,7 @@ import {
   open,
 } from "@raycast/api";
 import { useState } from "react";
+import { execSync } from "child_process";
 
 type Org = {
   username: string;
@@ -24,31 +25,24 @@ export default function OpenIdView({ org }: { org: Org }) {
   const [recordId, setRecordId] = useState<string>("");
 
   // Existing action: Open a record using Salesforce CLI (which preserves CLI authentication)
-  async function handleOpenRecord() {
-    if (!recordId.trim()) {
+  async function handleOpenRecord(fields: { recordId: string }) {
+    const trimmedRecordId = fields.recordId.trim();
+    if (!trimmedRecordId) {
       await showToast({
         style: Toast.Style.Failure,
-        title: "Please enter a record ID",
+        title: "Record ID cannot be empty"
       });
       return;
     }
-    const trimmedRecordId = recordId.trim();
-    // Naively derive the object API using first three characters (consider mapping for real use)
-    const objectPrefix = trimmedRecordId.substring(0, 3);
-    const relativePath = `/lightning/r/${objectPrefix}/${trimmedRecordId}/view`;
-    const targetOrg = org.alias || org.username;
-
     try {
-      const { exec } = require("child_process");
-      const util = require("util");
-      const execPromise = util.promisify(exec);
-      await execPromise(`sf org open -p "${relativePath}" --target-org "${targetOrg}"`);
-      pop();
+      const relativeRecordPath = `/lightning/r/YourObject/${trimmedRecordId}/view`;
+      execSync(`sf org open -p "${relativeRecordPath}" --target-org "${org.alias || org.username}"`);
     } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       await showToast({
         style: Toast.Style.Failure,
         title: "Failed to open record",
-        message: error.message,
+        message: errorMessage,
       });
     }
   }

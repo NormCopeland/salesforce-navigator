@@ -9,7 +9,7 @@
       "icon": "extension-icon.png"
     },
     {
-      "title": "Copy SF ID",
+      "title": "Copy Sf Id",
       "name": "copy-sf-id",
       "description": "Lists all open browser tabs that contain a Salesforce ID. Select one and it will be copied to the clipboard",
       "mode": "view",
@@ -22,13 +22,14 @@
   },
   "preferences": [
     {
-    "name": "searchLimit", 
+      "name": "searchLimit",
       "type": "textfield",
       "title": "Global Search Result Limit",
       "description": "The maximum number of search results returned in a global search query.",
-      "default": "100"
+      "default": "100",
+      "required": true
     }
-  ],  
+  ],
   "devDependencies": {
     "eslint": "^8.57.0",
     "prettier": "^3.3.3",

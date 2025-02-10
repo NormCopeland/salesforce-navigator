@@ -12,6 +12,8 @@ import {
   } from "@raycast/api";
   import { useState, useEffect, useCallback } from "react";
   import { useExec } from "@raycast/utils";
+  import { exec } from "child_process";
+  import { promisify } from "util";
   
   // Minimal Org type.
   type Org = {
@@ -130,11 +132,12 @@ import {
                 return dateB - dateA; // descending order
               });
               setUsers(recs);
-            } catch (error: any) {
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : String(error);
               await showToast({
                 style: Toast.Style.Failure,
                 title: "Failed to parse query results",
-                message: error.message,
+                message: errorMessage,
               });
             }
           } else {
@@ -164,15 +167,14 @@ import {
     async function handleOpenUserRecord(user: UserRecord) {
       try {
         const relativePath = `/lightning/setup/ManageUsers/page?address=/${user.Id}?noredirect%3D1%26isUserEntityOverride%3D1`;
-        const { exec } = require("child_process");
-        const util = require("util");
-        const execPromise = util.promisify(exec);
+        const execPromise = promisify(exec);
         await execPromise(`sf org open -p "${relativePath}" --target-org "${targetOrg}"`);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         await showToast({
           style: Toast.Style.Failure,
           title: "Failed to open User record",
-          message: error.message,
+          message: errorMessage,
         });
       }
     }
@@ -181,11 +183,12 @@ import {
       try {
         const fullUrl = `${org.instanceUrl}/servlet/servlet.su?oid=${org.orgId}&suorgadminid=${user.Id}&retURL=/&targetURL=%2Fhome%2Fhome.jsp`;
         await open(fullUrl);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         await showToast({
           style: Toast.Style.Failure,
           title: "Failed to initiate Login as User",
-          message: error.message,
+          message: errorMessage,
         });
       }
     }
@@ -203,11 +206,12 @@ import {
         }
         await Clipboard.copy(value.toString());
         await showHUD(`Copied ${fieldLabel} successfully!`);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         await showToast({
           style: Toast.Style.Failure,
           title: `Failed to copy ${fieldLabel}`,
-          message: error.message,
+          message: errorMessage,
         });
       }
     }
@@ -272,12 +276,12 @@ import {
                       />
                     </ActionPanel.Section>
                     <ActionPanel.Section>
-                      <Action title="Copy Id to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("Id", user, "ID")} />
-                      <Action title="Copy Username to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("username", user, "Username")} />
-                      <Action title="Copy Email to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("email", user, "Email")} />
-                      <Action title="Copy Alias to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("alias", user, "Alias")} />
-                      <Action title="Copy Last Login to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("lastLoginDate", user, "Last Login")} />
-                      <Action title="Copy User Role to Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("roleName", user, "User Role")} />
+                      <Action title="Copy Id To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("Id", user, "ID")} />
+                      <Action title="Copy Username To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("username", user, "Username")} />
+                      <Action title="Copy Email To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("email", user, "Email")} />
+                      <Action title="Copy Alias To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("alias", user, "Alias")} />
+                      <Action title="Copy Last Login To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("lastLoginDate", user, "Last Login")} />
+                      <Action title="Copy User Role To Clipboard" icon={Icon.Clipboard} onAction={() => handleCopy("roleName", user, "User Role")} />
                     </ActionPanel.Section>
                   </ActionPanel>
                 }

@@ -6,11 +6,11 @@ import {
   open,
   showToast,
   Toast,
-  useNavigation,
   getPreferenceValues,
 } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { useExec } from "@raycast/utils";
+import { exec } from "child_process";
+import { promisify } from "util";
 
 // Types for org and SObject.
 type Org = {
@@ -94,7 +94,6 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
   const [searchText, setSearchText] = useState("");
   const [records, setRecords] = useState<RecordResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { pop } = useNavigation();
 
   useEffect(() => {
     if (!searchText) {
@@ -117,26 +116,20 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
 
     // Build the SOQL query.
     const soql = `SELECT ${selectFields.join(", ")} FROM ${apiNameValue} ${fieldCondition} LIMIT 50`;
-    import("child_process")
-      .then(({ exec }) => {
-        const util = require("util");
-        const execPromise = util.promisify(exec);
-        return execPromise(
-          `sf data query --query "${soql}" --json --target-org ${org.alias || org.username}`
-        );
-      })
+    const execPromise = promisify(exec);
+    execPromise(`sf data query --query "${soql}" --json --target-org ${org.alias || org.username}`)
       .then(({ stdout }: { stdout: string }) => {
         try {
           const result = JSON.parse(stdout);
           setRecords(result.result.records || []);
-        } catch (error: any) {
-          console.error("Error parsing records:", error);
-          showToast({ style: Toast.Style.Failure, title: "Error parsing records", message: error.message });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          showToast({ style: Toast.Style.Failure, title: "Error parsing records", message: errorMessage });
         }
       })
-      .catch((err: Error) => {
-        console.error("Search error:", err);
-        showToast({ style: Toast.Style.Failure, title: "Search failed", message: err.message });
+      .catch((err: unknown) => {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        showToast({ style: Toast.Style.Failure, title: "Search failed", message: errorMessage });
       })
       .finally(() => {
         setIsLoading(false);
@@ -163,15 +156,14 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
     const targetOrg = org.alias || org.username;
   
     try {
-      const { exec } = require("child_process");
-      const util = require("util");
-      const execPromise = util.promisify(exec);
+      const execPromise = promisify(exec);
       await execPromise(`sf org open -p "${relativeGlobalPath}" --target-org "${targetOrg}"`);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       await showToast({
         style: Toast.Style.Failure,
         title: "Global Search failed",
-        message: error.message,
+        message: errorMessage,
       });
     }
   }
@@ -198,7 +190,11 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
             title={`Search Salesforce for "${searchText}"`}
             actions={
               <ActionPanel>
-                <Action title="Search in Browser" icon={Icon.Globe} onAction={handleGlobalSearch} />
+                <Action
+                  title="Search In Browser"
+                  icon={Icon.Globe}
+                  onAction={handleGlobalSearch}
+                />
               </ActionPanel>
             }
           />
@@ -241,27 +237,24 @@ export default function SalesforceSearchView({ org, sobject }: { org: Org; sobje
           actions={
             <ActionPanel>
               <Action
-  title="Open Record"
-  icon={Icon.OpenInBrowser}
-  onAction={async () => {
-    try {
-      const targetOrg = org.alias || org.username;
-      const relativeRecordPath = `/lightning/r/${apiNameValue}/${record.Id}/view`;
-      const { exec } = require("child_process");
-      const util = require("util");
-      const execPromise = util.promisify(exec);
-      await execPromise(`sf org open -p "${relativeRecordPath}" --target-org "${targetOrg}"`);
-    } catch (error: any) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Failed to open record",
-        message: error.message,
-      });
-    }
-  }}
-/>
-
-              <Action.CopyToClipboard title="Copy Record ID" content={record.Id} />
+                title="Open Record"
+                icon={Icon.OpenInBrowser}
+                onAction={async () => {
+                  try {
+                    const relativeRecordPath = `/lightning/r/${apiNameValue}/${record.Id}/view`;
+                    const execPromise = promisify(exec);
+                    await execPromise(`sf org open -p "${relativeRecordPath}" --target-org "${org.alias || org.username}"`);
+                  } catch (error: unknown) {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    await showToast({
+                      style: Toast.Style.Failure,
+                      title: "Failed to open record",
+                      message: errorMessage,
+                    });
+                  }
+                }}
+              />
+              <Action.CopyToClipboard title="Copy To Clipboard" content={record.Id} />
             </ActionPanel>
           }
         />

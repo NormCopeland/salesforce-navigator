@@ -37,7 +37,7 @@ function SalesforceTabItem({ tab }: { tab: SalesforceTab }) {
         // Expect title to be like: "Record Name | sObject | Salesforce"
         const parsedTitle = title.split(" | ")[0].trim();
         setRecordName(parsedTitle || "Untitled Record");
-      } catch (error) {
+      } catch (error: unknown) {
         if (error instanceof Error && error.message.includes("RaycastRPC.ResponseError")) {
           setRecordName("Not Available");
         } else {
@@ -58,15 +58,10 @@ function SalesforceTabItem({ tab }: { tab: SalesforceTab }) {
         <ActionPanel>
           <Action
             icon={Icon.Clipboard}
-            title="Copy SF ID"
+            title="Copy Sf Id"
             onAction={async () => {
               await Clipboard.copy(tab.recordId);
-              // await showToast({
-              //   style: Toast.Style.Success,
-              //   title: `SF ID from ${tab.orgName} Copied!`,
-              //   message: `ID: ${tab.recordId}`,
-              // });
-              await showHUD(`SF ID from ${tab.orgName} (${tab.recordId}) Copied!`);
+              await showHUD(`Sf Id from ${tab.orgName} (${tab.recordId}) Copied!`);
             }}
           />
           <Action.OpenInBrowser title="Open Tab" url={tab.url} icon={Icon.Globe} />
@@ -149,11 +144,12 @@ export default function Command() {
 
         setSFTabs(salesforceTabs);
       } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error fetching tabs:", error);
         await showToast({
           style: Toast.Style.Failure,
           title: "Error fetching browser tabs",
-          message: error instanceof Error ? error.message : String(error),
+          message: errorMessage,
         });
       } finally {
         setIsLoading(false);
@@ -163,7 +159,7 @@ export default function Command() {
   }, []);
 
   return (
-    <List isLoading={isLoading} navigationTitle="Copy SF ID">
+    <List isLoading={isLoading} navigationTitle="Copy Sf Id">
       <List.Section title="Salesforce Tabs">
         {sfTabs.map((tab) => (
           <SalesforceTabItem key={tab.id} tab={tab} />

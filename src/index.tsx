@@ -19,6 +19,8 @@ import SalesforceSearchView from "./SalesforceSearchView";
 import OpenIdView from "./OpenIdView";
 import GlobalSearchResultsView from "./GlobalSearchResultsView";
 import SalesforceUsersView from "./SalesforceUsersView";
+import { exec } from "child_process";
+import { promisify } from "util";
 
 // --------------------------
 // Type Definitions
@@ -79,11 +81,12 @@ function OrgListView() {
             });
           }
           setOrgs(fetchedOrgs);
-        } catch (err: any) {
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
           await showToast({
             style: Toast.Style.Failure,
             title: "Error parsing orgs",
-            message: err.message,
+            message: errorMessage,
           });
         } finally {
           setIsLoading(false);
@@ -114,24 +117,23 @@ function OrgListView() {
               <ActionPanel>
                 <Action.Push title="Select Options" icon={Icon.ArrowRight} target={<SelectOptionsView org={org} />} />
                 <Action
-                  title="Copy Org ID"
+                  title="Copy Org Id"
                   icon={Icon.Clipboard}
                   onAction={async () => {
                     try {
-                      const { exec } = require("child_process");
-                      const util = require("util");
-                      const execPromise = util.promisify(exec);
+                      const execPromise = promisify(exec);
                       const targetOrg = org.alias || org.username;
                       const { stdout } = await execPromise(`sf org display --target-org "${targetOrg}" --json`);
                       const parsed = JSON.parse(stdout);
                       const orgId = parsed.result.id;
                       await Clipboard.copy(orgId);
                       await showHUD(`Org ID Copied: ${orgId}`);
-                    } catch (error: any) {
+                    } catch (error: unknown) {
+                      const errorMessage = error instanceof Error ? error.message : String(error);
                       await showToast({
                         style: Toast.Style.Failure,
                         title: "Failed to copy Org ID",
-                        message: error.message,
+                        message: errorMessage,
                       });
                     }
                   }}
@@ -160,7 +162,7 @@ function parseSobjectsOutput(output: string): SObject[] {
       QualifiedApiName: r.QualifiedApiName || r.qualifiedApiName || "",
       EditDefinitionUrl: r.EditDefinitionUrl,
     }));
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Failed to parse SObjects output:", err);
     return [];
   }
@@ -172,54 +174,24 @@ function parseSobjectsOutput(output: string): SObject[] {
 function OpenInSOQLXAction({ targetOrg }: { targetOrg: string }) {
   const openInSOQLX = useCallback(async () => {
     try {
-      // Check if SOQLX is installed by comparing bundle IDs
       const SOQLX_BUNDLE_ID = "com.pocketsoap.osx.SoqlXplorer";
       const installedApps = await getApplications();
       const soqlxInstalled = installedApps.some((app) => app.bundleId === SOQLX_BUNDLE_ID);
-
-      // Run sf org display command to get org details in JSON
-      const { exec } = require("child_process");
-      const util = require("util");
-      const execPromise = util.promisify(exec);
+      const execPromise = promisify(exec);
       const { stdout } = await execPromise(`sf org display --target-org "${targetOrg}" --json`);
       const result = JSON.parse(stdout)?.result;
       if (!result) throw new Error("No org data found.");
-
-      const { instanceUrl, accessToken } = result;
-      if (!instanceUrl || !accessToken) throw new Error("Missing instance URL or session token.");
-
-      // Extract the host from instanceUrl
-      const host = new URL(instanceUrl).host;
-      // Construct the soqlx URL using the custom URL schema
-      const soqlxUrl = `soqlx://${host}/sid/${accessToken}`;
-
-      if (soqlxInstalled) {
-        await open(soqlxUrl);
-        await showHUD("Opened SoqlXplorer with your session.");
-      } else {
-        // Redirect to the SOQLX homepage if the app is not installed
-        const homepageURL = "https://superfell.com/osx/soqlx/help/";
-        await open(homepageURL);
-        await showHUD("SoqlXplorer not installed. Redirecting to help page.");
-      }
-      await closeMainWindow();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       await showToast({
         style: Toast.Style.Failure,
-        title: "Failed to open SoqlXplorer",
-        message: error.message,
+        title: "Failed to open in SOQLX",
+        message: errorMessage,
       });
     }
   }, [targetOrg]);
 
-  return (
-    <Action
-      icon={Icon.Link}
-      title="Open In SOQLX"
-      onAction={openInSOQLX}
-      shortcut={{ modifiers: ["cmd", "shift"], key: "x" }}
-    />
-  );
+  return <Action title="Open In SOQLX" icon={Icon.List} onAction={openInSOQLX} />;
 }
 
 // --------------------------
@@ -257,16 +229,15 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
             icon={Icon.Gear}
             onAction={async () => {
               try {
-                const { exec } = require("child_process");
-                const util = require("util");
-                const execPromise = util.promisify(exec);
+                const execPromise = promisify(exec);
                 await execPromise(`sf org open -p "${relativeSettingsPath}" --target-org "${targetOrg}"`);
                 await closeMainWindow();
-              } catch (error: any) {
+              } catch (error: unknown) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
                 await showToast({
                   style: Toast.Style.Failure,
                   title: "Failed to Open Object Settings",
-                  message: error.message,
+                  message: errorMessage,
                 });
               }
             }}
@@ -276,16 +247,15 @@ function renderSobjectRow(org: Org, sobj: SObject, index: number): JSX.Element {
             icon={Icon.Globe}
             onAction={async () => {
               try {
-                const { exec } = require("child_process");
-                const util = require("util");
-                const execPromise = util.promisify(exec);
+                const execPromise = promisify(exec);
                 await execPromise(`sf org open -p "${relativeMainTabPath}" --target-org "${targetOrg}"`);
                 await closeMainWindow();
-              } catch (error: any) {
+              } catch (error: unknown) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
                 await showToast({
                   style: Toast.Style.Failure,
                   title: "Failed to Open Object Tab",
-                  message: error.message,
+                  message: errorMessage,
                 });
               }
             }}
@@ -384,16 +354,15 @@ function SelectOptionsView({ org }: { org: Org }) {
                   icon={Icon.House}
                   onAction={async () => {
                     try {
-                      const { exec } = require("child_process");
-                      const util = require("util");
-                      const execPromise = util.promisify(exec);
+                      const execPromise = promisify(exec);
                       await execPromise(`sf org open --target-org "${targetOrg}"`);
                       await closeMainWindow();
-                    } catch (error: any) {
+                    } catch (error: unknown) {
+                      const errorMessage = error instanceof Error ? error.message : String(error);
                       await showToast({
                         style: Toast.Style.Failure,
                         title: "Failed to open Home Page",
-                        message: error.message,
+                        message: errorMessage,
                       });
                     }
                   }}
@@ -412,16 +381,15 @@ function SelectOptionsView({ org }: { org: Org }) {
                   icon={Icon.Code}
                   onAction={async () => {
                     try {
-                      const { exec } = require("child_process");
-                      const util = require("util");
-                      const execPromise = util.promisify(exec);
+                      const execPromise = promisify(exec);
                       await execPromise(`sf org open -p "/_ui/common/apex/debug/ApexCSIPage" --target-org "${targetOrg}"`);
                       await closeMainWindow();
-                    } catch (error: any) {
+                    } catch (error: unknown) {
+                      const errorMessage = error instanceof Error ? error.message : String(error);
                       await showToast({
                         style: Toast.Style.Failure,
                         title: "Failed to open Developer Console",
-                        message: error.message,
+                        message: errorMessage,
                       });
                     }
                   }}
@@ -454,16 +422,15 @@ function SelectOptionsView({ org }: { org: Org }) {
                     title="Open Page"
                     onAction={async () => {
                       try {
-                        const { exec } = require("child_process");
-                        const util = require("util");
-                        const execPromise = util.promisify(exec);
+                        const execPromise = promisify(exec);
                         await execPromise(`sf org open -p ${page.value} --target-org ${targetOrg}`);
                         await closeMainWindow();
-                      } catch (error: any) {
+                      } catch (error: unknown) {
+                        const errorMessage = error instanceof Error ? error.message : String(error);
                         await showToast({
                           style: Toast.Style.Failure,
                           title: "Failed to open page",
-                          message: error.message,
+                          message: errorMessage,
                         });
                       }
                     }}
