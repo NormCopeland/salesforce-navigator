@@ -248,12 +248,12 @@ export default function SalesforceUsersView({ org }: { org: Org }) {
                   <ActionPanel.Section>
                     <Action
                       title="Open User Record"
-                      icon={Icon.OpenInBrowser}
+                      icon={Icon.Globe}
                       onAction={() => handleOpenUserRecord(user)}
                     />
                     <Action
                       title="Login as User"
-                      icon={Icon.SwitchHorizontal}
+                      icon={Icon.Switch}
                       onAction={() => handleLoginAsUser(user)}
                     />
                   </ActionPanel.Section>
